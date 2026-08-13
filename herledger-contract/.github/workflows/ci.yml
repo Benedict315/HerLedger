@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  check:
+    name: Format, Clippy, Test, Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: wasm32v1-none
+          components: rustfmt, clippy
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install Stellar CLI
+        run: cargo install --locked stellar-cli@26.1.0 --features opt
+
+      - name: Check formatting
+        working-directory: herledger-contract
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        working-directory: herledger-contract
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Unit tests
+        working-directory: herledger-contract
+        run: cargo test --workspace
+
+      - name: Build WASM contracts
+        working-directory: herledger-contract
+        run: stellar contract build
+
+      - name: Verify WASM artifacts exist
+        working-directory: herledger-contract
+        run: |
+          ls target/wasm32v1-none/release/business_registry.wasm
+          ls target/wasm32v1-none/release/financial_ledger.wasm
+          ls target/wasm32v1-none/release/attestation_registry.wasm

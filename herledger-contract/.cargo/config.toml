@@ -1,0 +1,4 @@
+# Workspace Cargo configuration for HerLedger contracts.
+# The wasm32v1-none target is specified explicitly when building contracts
+# via `stellar contract build`. No default target override is set here so
+# that `cargo test` compiles for the host and testutils dependencies resolve.
