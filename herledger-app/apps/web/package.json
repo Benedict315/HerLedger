@@ -1,0 +1,36 @@
+{
+  "name": "web",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@herledger/config": "workspace:*",
+    "@herledger/sdk": "workspace:*",
+    "@stellar/freighter-api": "6.0.1",
+    "@stellar/stellar-sdk": "16.1.0",
+    "better-auth": "1.6.25",
+    "next": "16.2.11",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.49.1",
+    "@types/node": "22.10.7",
+    "@types/react": "19.2.8",
+    "@types/react-dom": "19.2.8",
+    "@vitejs/plugin-react": "4.3.4",
+    "eslint": "9.18.0",
+    "eslint-config-next": "16.2.11",
+    "typescript": "7.0.2",
+    "vitest": "3.2.4"
+  }
+}

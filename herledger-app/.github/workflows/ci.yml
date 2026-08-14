@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    name: Build, type check, lint, test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: herledger
+          POSTGRES_PASSWORD: herledger
+          POSTGRES_DB: herledger_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://herledger:herledger@localhost:5432/herledger_test
+      BETTER_AUTH_SECRET: ci-test-secret-must-be-at-least-32-chars-long
+      APP_URL: http://localhost:3000
+      STELLAR_NETWORK: testnet
+      STELLAR_RPC_URL: https://soroban-testnet.stellar.org
+      STELLAR_HORIZON_URL: https://horizon-testnet.stellar.org
+      STELLAR_NETWORK_PASSPHRASE: "Test SDF Network ; September 2015"
+      BUSINESS_REGISTRY_CONTRACT_ID: placeholder
+      FINANCIAL_LEDGER_CONTRACT_ID: placeholder
+      ATTESTATION_REGISTRY_CONTRACT_ID: placeholder
+      INDEXER_API_URL: http://localhost:4000
+      NEXT_PUBLIC_STELLAR_NETWORK: testnet
+      NEXT_PUBLIC_STELLAR_RPC_URL: https://soroban-testnet.stellar.org
+      NEXT_PUBLIC_BUSINESS_REGISTRY_CONTRACT_ID: placeholder
+      NEXT_PUBLIC_FINANCIAL_LEDGER_CONTRACT_ID: placeholder
+      NEXT_PUBLIC_ATTESTATION_REGISTRY_CONTRACT_ID: placeholder
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "pnpm"
+          cache-dependency-path: herledger-app/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: herledger-app
+
+      - name: Format check
+        run: pnpm format
+        working-directory: herledger-app
+
+      - name: Type check
+        run: pnpm typecheck
+        working-directory: herledger-app
+
+      - name: Lint
+        run: pnpm lint
+        working-directory: herledger-app
+
+      - name: Prisma validate
+        run: pnpm prisma validate --schema prisma/schema.prisma
+        working-directory: herledger-app
+
+      - name: Prisma generate
+        run: pnpm db:generate
+        working-directory: herledger-app
+
+      - name: Prisma migrate
+        run: pnpm db:migrate
+        working-directory: herledger-app
+
+      - name: Unit tests
+        run: pnpm test
+        working-directory: herledger-app
+
+      - name: Build
+        run: pnpm build
+        working-directory: herledger-app

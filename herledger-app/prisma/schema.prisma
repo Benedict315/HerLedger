@@ -1,0 +1,204 @@
+// HerLedger application database schema
+// The database is an indexed application layer — NOT the source of truth for on-chain data.
+// Blockchain-derived fields are immutable after indexing.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Better Auth — user and session models
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  name          String?
+  image         String?
+  createdAt     DateTime  @default(now()) @db.Timestamptz
+  updatedAt     DateTime  @updatedAt @db.Timestamptz
+
+  sessions      Session[]
+  accounts      Account[]
+  businessProfile BusinessProfile?
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime @db.Timestamptz
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Account {
+  id                   String   @id @default(cuid())
+  userId               String
+  accountId            String
+  providerId           String
+  accessToken          String?
+  refreshToken         String?
+  accessTokenExpiresAt DateTime? @db.Timestamptz
+  refreshTokenExpiresAt DateTime? @db.Timestamptz
+  scope                String?
+  idToken              String?
+  password             String?
+  createdAt            DateTime @default(now()) @db.Timestamptz
+  updatedAt            DateTime @updatedAt @db.Timestamptz
+
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime @db.Timestamptz
+  createdAt  DateTime @default(now()) @db.Timestamptz
+  updatedAt  DateTime @updatedAt @db.Timestamptz
+
+  @@unique([identifier, value])
+  @@map("verifications")
+}
+
+// ---------------------------------------------------------------------------
+// HerLedger application models
+// ---------------------------------------------------------------------------
+
+model BusinessProfile {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  /// On-chain business ID (hex-encoded BytesN<32>)
+  businessId    String   @unique
+  /// Stellar address of the registered wallet
+  walletAddress String   @unique
+  displayName   String
+  /// Hex-encoded metadata hash committed on-chain
+  metadataHash  String
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now()) @db.Timestamptz
+  updatedAt     DateTime @updatedAt @db.Timestamptz
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  events        FinancialEvent[]
+
+  @@index([walletAddress])
+  @@index([businessId])
+  @@map("business_profiles")
+}
+
+model FinancialEvent {
+  id               String      @id @default(cuid())
+  /// On-chain business ID (hex-encoded BytesN<32>)
+  businessId       String
+  /// On-chain event ID (hex-encoded BytesN<32>)
+  eventId          String      @unique
+  eventType        EventType
+  /// Stellar asset contract address
+  assetAddress     String
+  /// Stored as string to preserve i128 precision — never cast to Number
+  amount           String
+  /// Stellar transaction hash (hex-encoded BytesN<32>)
+  stellarReference String
+  /// Hex-encoded metadata hash
+  metadataHash     String
+  status           EventStatus @default(Pending)
+  ledgerSequence   Int
+  createdAt        DateTime    @default(now()) @db.Timestamptz
+  updatedAt        DateTime    @updatedAt @db.Timestamptz
+
+  business         BusinessProfile @relation(fields: [businessId], references: [businessId], onDelete: Restrict)
+  attestations     Attestation[]
+
+  @@index([businessId])
+  @@index([ledgerSequence])
+  @@index([status])
+  @@map("financial_events")
+}
+
+model Attestation {
+  id              String            @id @default(cuid())
+  /// On-chain attestation ID (hex-encoded BytesN<32>)
+  attestationId   String            @unique
+  /// On-chain event ID (hex-encoded BytesN<32>)
+  eventId         String
+  attesterAddress String
+  claimHash       String
+  status          AttestationStatus @default(Active)
+  ledgerSequence  Int
+  createdAt       DateTime          @default(now()) @db.Timestamptz
+  updatedAt       DateTime          @updatedAt @db.Timestamptz
+
+  event           FinancialEvent    @relation(fields: [eventId], references: [eventId], onDelete: Restrict)
+
+  @@index([eventId])
+  @@index([attesterAddress])
+  @@map("attestations")
+}
+
+model StellarTransaction {
+  /// Stellar transaction hash (hex string)
+  hash           String   @id
+  ledgerSequence Int
+  successful     Boolean
+  /// Stellar source account address
+  sourceAddress  String
+  createdAt      DateTime @default(now()) @db.Timestamptz
+
+  @@index([ledgerSequence])
+  @@index([sourceAddress])
+  @@map("stellar_transactions")
+}
+
+model IndexerCheckpoint {
+  id          String   @id @default(cuid())
+  /// Logical stream identifier (e.g. "main", "business-events")
+  stream      String   @unique
+  lastLedger  Int
+  updatedAt   DateTime @updatedAt @db.Timestamptz
+
+  @@map("indexer_checkpoints")
+}
+
+// ---------------------------------------------------------------------------
+// Enums — mirror on-chain definitions
+// ---------------------------------------------------------------------------
+
+enum EventType {
+  PaymentReceived
+  PaymentSent
+  InvoiceSettled
+  CommitmentFulfilled
+}
+
+enum EventStatus {
+  Pending
+  Verified
+  Disputed
+  Revoked
+}
+
+enum AttestationStatus {
+  Active
+  Revoked
+}
