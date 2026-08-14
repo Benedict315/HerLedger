@@ -1,9 +1,7 @@
 import {
   rpc as StellarRpc,
   Transaction,
-  xdr,
   TransactionBuilder,
-  Networks,
 } from "@stellar/stellar-sdk";
 import type { StellarNetworkConfig, TransactionResult } from "../types/index.js";
 import { RpcError, ContractError } from "../errors/index.js";
@@ -40,7 +38,7 @@ export async function simulateAndPrepare(
 }
 
 /**
- * Submit a signed transaction and poll until it is confirmed or fails.
+ * Submit a signed transaction XDR and poll until confirmed or failed.
  */
 export async function submitAndWait(
   signedXdr: string,
@@ -48,25 +46,23 @@ export async function submitAndWait(
 ): Promise<TransactionResult> {
   const server = getSorobanRpcServer(config);
 
+  // Parse the XDR back into a transaction object for submission
+  const txObj = TransactionBuilder.fromXDR(signedXdr, config.networkPassphrase);
+
   let sendResult: StellarRpc.Api.SendTransactionResponse;
   try {
-    sendResult = await server.sendTransaction(
-      TransactionBuilder.fromXDR(signedXdr, config.networkPassphrase)
-    );
+    sendResult = await server.sendTransaction(txObj);
   } catch (cause) {
     throw new RpcError("Failed to submit transaction", cause);
   }
 
   if (sendResult.status === "ERROR") {
-    throw new ContractError(
-      `Transaction submission error: ${sendResult.errorResult?.toXDR("base64") ?? "unknown"}`,
-      sendResult.status
-    );
+    const detail = sendResult.errorResult?.toXDR("base64") ?? "unknown";
+    throw new ContractError(`Transaction submission error: ${detail}`, sendResult.status);
   }
 
   const hash = sendResult.hash;
 
-  // Poll for confirmation
   for (let i = 0; i < MAX_POLLS; i++) {
     await sleep(POLL_INTERVAL_MS);
     let getResult: StellarRpc.Api.GetTransactionResponse;
@@ -80,12 +76,9 @@ export async function submitAndWait(
       return { hash, success: true, ledger: getResult.ledger };
     }
     if (getResult.status === StellarRpc.Api.GetTransactionStatus.FAILED) {
-      throw new ContractError(
-        `Transaction ${hash} failed on-chain`,
-        getResult.status
-      );
+      throw new ContractError(`Transaction ${hash} failed on-chain`, getResult.status);
     }
-    // NOT_FOUND means still pending — keep polling
+    // NOT_FOUND = still pending, keep polling
   }
 
   throw new RpcError(`Transaction ${hash} did not confirm within timeout`);

@@ -1,5 +1,4 @@
 import { rpc as StellarRpc, xdr } from "@stellar/stellar-sdk";
-import { decodeBytes32, decodeAddress } from "@herledger/sdk";
 
 // ---------------------------------------------------------------------------
 // Soroban contract event parsing
@@ -20,10 +19,8 @@ export function parseContractEvents(
   events: StellarRpc.Api.GetEventsResponse["events"]
 ): ParsedContractEvent[] {
   return events.map((event) => {
-    const topic =
-      event.topic.length > 0
-        ? (event.topic[0]?.sym() ?? "unknown")
-        : "unknown";
+    const firstTopic = event.topic[0];
+    const topic = firstTopic ? firstTopic.sym() : "unknown";
 
     return {
       ledgerSequence: event.ledger,

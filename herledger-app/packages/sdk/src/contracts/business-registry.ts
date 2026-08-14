@@ -5,7 +5,12 @@ import {
   xdr,
   rpc as StellarRpc,
 } from "@stellar/stellar-sdk";
-import type { Business, StellarNetworkConfig, ContractConfig, TransactionResult } from "../types/index.js";
+import type {
+  Business,
+  StellarNetworkConfig,
+  ContractConfig,
+  TransactionResult,
+} from "../types/index.js";
 import { RpcError, ContractError } from "../errors/index.js";
 import { getSorobanRpcServer } from "../rpc/client.js";
 import { simulateAndPrepare, submitAndWait } from "../rpc/transactions.js";
@@ -22,25 +27,46 @@ import {
 // BusinessRegistry contract client
 // ---------------------------------------------------------------------------
 
+/** Placeholder account used for read-only simulations (no auth, no fees). */
+const READ_ACCOUNT = "GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN";
+
+function isVoid(val: xdr.ScVal): boolean {
+  return val.switch().name === "scvVoid";
+}
+
 function decodeBusiness(val: xdr.ScVal): Business {
-  // The contract returns a struct ScVal (SCV_MAP)
   const map = val.map();
   if (!map) throw new ContractError("Expected struct map for Business");
 
   const fields: Record<string, xdr.ScVal> = {};
   for (const entry of map) {
-    const key = entry.key().sym();
-    fields[key] = entry.val();
+    fields[entry.key().sym()] = entry.val();
   }
 
-  const id = fields["id"] ? decodeBytes32(fields["id"]) : "";
-  const owner = fields["owner"] ? decodeAddress(fields["owner"]) : "";
-  const wallet = fields["wallet"] ? decodeAddress(fields["wallet"]) : "";
-  const metadataHash = fields["metadata_hash"] ? decodeBytes32(fields["metadata_hash"]) : "";
-  const active = fields["active"] ? decodeBool(fields["active"]) : false;
-
-  return { id, owner, wallet, metadataHash, active };
+  return {
+    id: decodeBytes32(fields["id"]!),
+    owner: decodeAddress(fields["owner"]!),
+    wallet: decodeAddress(fields["wallet"]!),
+    metadataHash: decodeBytes32(fields["metadata_hash"]!),
+    active: decodeBool(fields["active"]!),
+  };
 }
+
+async function simulateRead(
+  tx: ReturnType<TransactionBuilder["build"]>,
+  config: StellarNetworkConfig
+): Promise<StellarRpc.Api.SimulateTransactionResponse> {
+  const server = getSorobanRpcServer(config);
+  try {
+    return await server.simulateTransaction(tx);
+  } catch (cause) {
+    throw new RpcError("Contract simulation failed", cause);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Reads
+// ---------------------------------------------------------------------------
 
 /**
  * Read: get_business(business_id) -> Option<Business>
@@ -50,34 +76,23 @@ export async function getBusiness(
   config: StellarNetworkConfig,
   contracts: ContractConfig
 ): Promise<Business | null> {
-  const server = getSorobanRpcServer(config);
   const contract = new Contract(contracts.businessRegistryId);
-
-  const tx = new TransactionBuilder(
-    new Account("GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN", "0"),
-    { fee: "100", networkPassphrase: config.networkPassphrase }
-  )
-    .addOperation(
-      contract.call("get_business", encodeBytes32(businessId))
-    )
+  const tx = new TransactionBuilder(new Account(READ_ACCOUNT, "0"), {
+    fee: "100",
+    networkPassphrase: config.networkPassphrase,
+  })
+    .addOperation(contract.call("get_business", encodeBytes32(businessId)))
     .setTimeout(30)
     .build();
 
-  let simResult: StellarRpc.Api.SimulateTransactionResponse;
-  try {
-    simResult = await server.simulateTransaction(tx);
-  } catch (cause) {
-    throw new RpcError("get_business simulation failed", cause);
+  const sim = await simulateRead(tx, config);
+  if (StellarRpc.Api.isSimulationError(sim)) {
+    throw new ContractError(`get_business error: ${sim.error}`);
   }
 
-  if (StellarRpc.Api.isSimulationError(simResult)) {
-    throw new ContractError(`get_business error: ${simResult.error}`);
-  }
-
-  const returnVal = simResult.result?.retval;
-  if (!returnVal || returnVal.switch() === xdr.ScValType.scvVoid()) return null;
-
-  return decodeBusiness(returnVal);
+  const retval = sim.result?.retval;
+  if (!retval || isVoid(retval)) return null;
+  return decodeBusiness(retval);
 }
 
 /**
@@ -88,35 +103,28 @@ export async function getBusinessByWallet(
   config: StellarNetworkConfig,
   contracts: ContractConfig
 ): Promise<Business | null> {
-  const server = getSorobanRpcServer(config);
   const contract = new Contract(contracts.businessRegistryId);
-
-  const tx = new TransactionBuilder(
-    new Account("GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN", "0"),
-    { fee: "100", networkPassphrase: config.networkPassphrase }
-  )
-    .addOperation(
-      contract.call("get_business_by_wallet", encodeAddress(wallet))
-    )
+  const tx = new TransactionBuilder(new Account(READ_ACCOUNT, "0"), {
+    fee: "100",
+    networkPassphrase: config.networkPassphrase,
+  })
+    .addOperation(contract.call("get_business_by_wallet", encodeAddress(wallet)))
     .setTimeout(30)
     .build();
 
-  let simResult: StellarRpc.Api.SimulateTransactionResponse;
-  try {
-    simResult = await server.simulateTransaction(tx);
-  } catch (cause) {
-    throw new RpcError("get_business_by_wallet simulation failed", cause);
+  const sim = await simulateRead(tx, config);
+  if (StellarRpc.Api.isSimulationError(sim)) {
+    throw new ContractError(`get_business_by_wallet error: ${sim.error}`);
   }
 
-  if (StellarRpc.Api.isSimulationError(simResult)) {
-    throw new ContractError(`get_business_by_wallet error: ${simResult.error}`);
-  }
-
-  const returnVal = simResult.result?.retval;
-  if (!returnVal || returnVal.switch() === xdr.ScValType.scvVoid()) return null;
-
-  return decodeBusiness(returnVal);
+  const retval = sim.result?.retval;
+  if (!retval || isVoid(retval)) return null;
+  return decodeBusiness(retval);
 }
+
+// ---------------------------------------------------------------------------
+// Writes
+// ---------------------------------------------------------------------------
 
 /**
  * Write: register_business(business_id, owner, wallet, metadata_hash)
@@ -133,7 +141,6 @@ export async function registerBusiness(
   contracts: ContractConfig
 ): Promise<TransactionResult> {
   const contract = new Contract(contracts.businessRegistryId);
-
   const tx = new TransactionBuilder(params.sourceAccount, {
     fee: "1000000",
     networkPassphrase: config.networkPassphrase,
@@ -173,7 +180,6 @@ export async function updateBusinessMetadata(
   contracts: ContractConfig
 ): Promise<TransactionResult> {
   const contract = new Contract(contracts.businessRegistryId);
-
   const tx = new TransactionBuilder(params.sourceAccount, {
     fee: "1000000",
     networkPassphrase: config.networkPassphrase,
@@ -210,14 +216,11 @@ export async function deactivateBusiness(
   contracts: ContractConfig
 ): Promise<TransactionResult> {
   const contract = new Contract(contracts.businessRegistryId);
-
   const tx = new TransactionBuilder(params.sourceAccount, {
     fee: "1000000",
     networkPassphrase: config.networkPassphrase,
   })
-    .addOperation(
-      contract.call("deactivate_business", encodeBytes32(params.businessId))
-    )
+    .addOperation(contract.call("deactivate_business", encodeBytes32(params.businessId)))
     .setTimeout(300)
     .build();
 

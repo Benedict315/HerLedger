@@ -4,7 +4,6 @@ import {
   Account,
   xdr,
   rpc as StellarRpc,
-  scValToNative,
 } from "@stellar/stellar-sdk";
 import type {
   FinancialEvent,
@@ -35,6 +34,10 @@ import {
 // ---------------------------------------------------------------------------
 
 const READ_ACCOUNT = "GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN";
+
+function isVoid(val: xdr.ScVal): boolean {
+  return val.switch().name === "scvVoid";
+}
 
 function decodeEventType(val: xdr.ScVal): EventType {
   const name = val.value()?.toString() ?? "";
@@ -90,8 +93,7 @@ async function simulateRead(
 ): Promise<StellarRpc.Api.SimulateTransactionResponse> {
   const server = getSorobanRpcServer(config);
   try {
-    const result = await server.simulateTransaction(tx);
-    return result;
+    return await server.simulateTransaction(tx);
   } catch (cause) {
     throw new RpcError("Contract simulation failed", cause);
   }
@@ -120,7 +122,7 @@ export async function getFinancialEvent(
     throw new ContractError(`get_event error: ${sim.error}`);
   }
   const retval = sim.result?.retval;
-  if (!retval || retval.switch() === xdr.ScValType.scvVoid()) return null;
+  if (!retval || isVoid(retval)) return null;
   return decodeFinancialEvent(retval);
 }
 
@@ -152,7 +154,7 @@ export async function getBusinessEvents(
     throw new ContractError(`get_business_events error: ${sim.error}`);
   }
   const retval = sim.result?.retval;
-  if (!retval || retval.switch() === xdr.ScValType.scvVoid()) return [];
+  if (!retval || isVoid(retval)) return [];
 
   const vec = retval.vec();
   if (!vec) return [];
@@ -178,7 +180,7 @@ export async function isSupportedAsset(
     throw new ContractError(`is_supported_asset error: ${sim.error}`);
   }
   const retval = sim.result?.retval;
-  if (!retval) return false;
+  if (!retval || isVoid(retval)) return false;
   return retval.b();
 }
 
@@ -202,11 +204,6 @@ export async function recordFinancialEvent(
   contracts: ContractConfig
 ): Promise<TransactionResult> {
   const contract = new Contract(contracts.financialLedgerId);
-
-  const eventTypeVal = xdr.ScVal.scvVec([
-    xdr.ScVal.scvSymbol(params.eventType),
-  ]);
-
   const tx = new TransactionBuilder(params.sourceAccount, {
     fee: "1000000",
     networkPassphrase: config.networkPassphrase,
@@ -246,7 +243,6 @@ export async function disputeFinancialEvent(
   contracts: ContractConfig
 ): Promise<TransactionResult> {
   const contract = new Contract(contracts.financialLedgerId);
-
   const tx = new TransactionBuilder(params.sourceAccount, {
     fee: "1000000",
     networkPassphrase: config.networkPassphrase,
@@ -280,7 +276,6 @@ export async function verifyFinancialEvent(
   contracts: ContractConfig
 ): Promise<TransactionResult> {
   const contract = new Contract(contracts.financialLedgerId);
-
   const tx = new TransactionBuilder(params.sourceAccount, {
     fee: "1000000",
     networkPassphrase: config.networkPassphrase,
@@ -310,7 +305,6 @@ export async function resolveFinancialEvent(
   contracts: ContractConfig
 ): Promise<TransactionResult> {
   const contract = new Contract(contracts.financialLedgerId);
-
   const tx = new TransactionBuilder(params.sourceAccount, {
     fee: "1000000",
     networkPassphrase: config.networkPassphrase,
@@ -346,7 +340,6 @@ export async function revokeFinancialEvent(
   contracts: ContractConfig
 ): Promise<TransactionResult> {
   const contract = new Contract(contracts.financialLedgerId);
-
   const tx = new TransactionBuilder(params.sourceAccount, {
     fee: "1000000",
     networkPassphrase: config.networkPassphrase,

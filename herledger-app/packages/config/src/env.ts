@@ -5,17 +5,17 @@ import { z } from "zod";
 // ---------------------------------------------------------------------------
 const serverEnvSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-  APP_URL: z.url(),
+  APP_URL: z.string().url(),
   DATABASE_URL: z.string().min(1),
   BETTER_AUTH_SECRET: z.string().min(32),
   STELLAR_NETWORK: z.enum(["testnet", "mainnet"]),
-  STELLAR_RPC_URL: z.url(),
-  STELLAR_HORIZON_URL: z.url(),
+  STELLAR_RPC_URL: z.string().url(),
+  STELLAR_HORIZON_URL: z.string().url(),
   STELLAR_NETWORK_PASSPHRASE: z.string().min(1),
   BUSINESS_REGISTRY_CONTRACT_ID: z.string().min(1),
   FINANCIAL_LEDGER_CONTRACT_ID: z.string().min(1),
   ATTESTATION_REGISTRY_CONTRACT_ID: z.string().min(1),
-  INDEXER_API_URL: z.url(),
+  INDEXER_API_URL: z.string().url(),
 });
 
 // ---------------------------------------------------------------------------
@@ -23,7 +23,7 @@ const serverEnvSchema = z.object({
 // ---------------------------------------------------------------------------
 const publicEnvSchema = z.object({
   NEXT_PUBLIC_STELLAR_NETWORK: z.enum(["testnet", "mainnet"]),
-  NEXT_PUBLIC_STELLAR_RPC_URL: z.url(),
+  NEXT_PUBLIC_STELLAR_RPC_URL: z.string().url(),
   NEXT_PUBLIC_BUSINESS_REGISTRY_CONTRACT_ID: z.string().min(1),
   NEXT_PUBLIC_FINANCIAL_LEDGER_CONTRACT_ID: z.string().min(1),
   NEXT_PUBLIC_ATTESTATION_REGISTRY_CONTRACT_ID: z.string().min(1),

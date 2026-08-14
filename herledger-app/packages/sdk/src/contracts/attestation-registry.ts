@@ -8,7 +8,6 @@ import {
 import type {
   Attestation,
   AttestationStatus,
-  Attester,
   StellarNetworkConfig,
   ContractConfig,
   TransactionResult,
@@ -23,7 +22,6 @@ import {
   decodeBytes32,
   decodeAddress,
   decodeU64,
-  decodeBool,
 } from "./encoding.js";
 
 // ---------------------------------------------------------------------------
@@ -31,6 +29,10 @@ import {
 // ---------------------------------------------------------------------------
 
 const READ_ACCOUNT = "GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN";
+
+function isVoid(val: xdr.ScVal): boolean {
+  return val.switch().name === "scvVoid";
+}
 
 function decodeAttestationStatus(val: xdr.ScVal): AttestationStatus {
   const name = val.value()?.toString() ?? "";
@@ -91,7 +93,7 @@ export async function getAttestation(
     throw new ContractError(`get_attestation error: ${sim.error}`);
   }
   const retval = sim.result?.retval;
-  if (!retval || retval.switch() === xdr.ScValType.scvVoid()) return null;
+  if (!retval || isVoid(retval)) return null;
   return decodeAttestation(retval);
 }
 
@@ -114,7 +116,7 @@ export async function isValidAttestation(
     throw new ContractError(`is_valid_attestation error: ${sim.error}`);
   }
   const retval = sim.result?.retval;
-  if (!retval) return false;
+  if (!retval || isVoid(retval)) return false;
   return retval.b();
 }
 

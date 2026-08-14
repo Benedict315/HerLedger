@@ -1,4 +1,4 @@
-import { xdr, Address, nativeToScVal, scValToNative, Contract } from "@stellar/stellar-sdk";
+import { xdr, Address, nativeToScVal, scValToNative } from "@stellar/stellar-sdk";
 import { ContractError } from "../errors/index.js";
 
 // ---------------------------------------------------------------------------
@@ -7,7 +7,7 @@ import { ContractError } from "../errors/index.js";
 // ---------------------------------------------------------------------------
 
 /**
- * Encode a hex string (32 bytes) as a Soroban BytesN<32> ScVal.
+ * Encode a hex string (32 bytes) as a Soroban Bytes ScVal.
  */
 export function encodeBytes32(hex: string): xdr.ScVal {
   const bytes = hexToBytes(hex);
@@ -46,7 +46,7 @@ export function encodeU32(value: number): xdr.ScVal {
 }
 
 /**
- * Decode a BytesN<32> ScVal to a hex string.
+ * Decode a Bytes ScVal to a hex string.
  */
 export function decodeBytes32(val: xdr.ScVal): string {
   const bytes = val.bytes();
@@ -62,16 +62,21 @@ export function decodeAddress(val: xdr.ScVal): string {
 
 /**
  * Decode an i128 ScVal to bigint.
+ * Uses scValToNative which returns a BigInt for i128/u128.
  */
 export function decodeI128(val: xdr.ScVal): bigint {
-  return BigInt(scValToNative(val) as string | number | bigint);
+  const native = scValToNative(val);
+  if (typeof native === "bigint") return native;
+  return BigInt(String(native));
 }
 
 /**
  * Decode a u64 ScVal to bigint.
  */
 export function decodeU64(val: xdr.ScVal): bigint {
-  return BigInt(scValToNative(val) as string | number | bigint);
+  const native = scValToNative(val);
+  if (typeof native === "bigint") return native;
+  return BigInt(String(native));
 }
 
 /**
@@ -81,31 +86,11 @@ export function decodeBool(val: xdr.ScVal): boolean {
   return val.b();
 }
 
-/**
- * Safely decode an Option ScVal — returns null for void/none.
- */
-export function decodeOption<T>(val: xdr.ScVal, decoder: (v: xdr.ScVal) => T): T | null {
-  if (val.switch() === xdr.ScValType.scvVoid()) return null;
-  // SCV_LEDGER_KEY_NONCE or similar None encoding
-  try {
-    return decoder(val);
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Build a contract function call argument list.
- */
-export function buildArgs(...args: xdr.ScVal[]): xdr.ScVal[] {
-  return args;
-}
-
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-function hexToBytes(hex: string): Uint8Array {
+export function hexToBytes(hex: string): Uint8Array {
   const clean = hex.startsWith("0x") ? hex.slice(2) : hex;
   if (clean.length % 2 !== 0) {
     throw new ContractError(`Invalid hex string length: ${clean.length}`);
@@ -120,5 +105,3 @@ function hexToBytes(hex: string): Uint8Array {
   }
   return bytes;
 }
-
-export { hexToBytes };
