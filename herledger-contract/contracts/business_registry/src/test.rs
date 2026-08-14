@@ -10,7 +10,7 @@ fn make_env() -> Env {
     Env::default()
 }
 
-fn deploy(env: &Env) -> BusinessRegistryClient {
+fn deploy(env: &Env) -> BusinessRegistryClient<'_> {
     let contract_id = env.register(BusinessRegistry, ());
     let client = BusinessRegistryClient::new(env, &contract_id);
     let admin: Address = Address::generate(env);
