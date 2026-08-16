@@ -2,6 +2,9 @@
 // Application-level types mirroring on-chain contract structures
 // ---------------------------------------------------------------------------
 
+export type { Brand, ContractAddress, HexString32 } from "./branded.js";
+import type { ContractAddress } from "./branded.js";
+
 export interface Business {
   id: string; // hex-encoded BytesN<32>
   owner: string; // Stellar address
@@ -47,17 +50,31 @@ export interface Attestation {
   status: AttestationStatus;
 }
 
+/** The two Stellar networks HerLedger targets. Mirrors `STELLAR_NETWORK` / `NEXT_PUBLIC_STELLAR_NETWORK`. */
+export type NetworkId = "testnet" | "mainnet";
+
 export interface StellarNetworkConfig {
-  network: "testnet" | "mainnet";
+  network: NetworkId;
   rpcUrl: string;
   horizonUrl: string;
   networkPassphrase: string;
 }
 
+/**
+ * Contract addresses for the three HerLedger Soroban contracts.
+ *
+ * Fields are `ContractAddress`, not `string` — a value can only end up here
+ * via `toContractAddress()` / `buildContractConfig()` in
+ * `contracts/registry.ts`, which validates it against `CONTRACT_ADDRESSES`
+ * for the target network. Passing a raw string (e.g. an env var read
+ * directly, or an address for the wrong contract) is a compile error.
+ *
+ * See `contracts/registry.ts` for how to construct one.
+ */
 export interface ContractConfig {
-  businessRegistryId: string;
-  financialLedgerId: string;
-  attestationRegistryId: string;
+  businessRegistryId: ContractAddress;
+  financialLedgerId: ContractAddress;
+  attestationRegistryId: ContractAddress;
 }
 
 export interface TransactionResult {

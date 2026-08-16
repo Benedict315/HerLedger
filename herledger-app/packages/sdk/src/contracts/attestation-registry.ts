@@ -46,7 +46,7 @@ function decodeAttestation(val: xdr.ScVal): Attestation {
   if (!map) throw new ContractError("Expected struct map for Attestation");
   const fields: Record<string, xdr.ScVal> = {};
   for (const entry of map) {
-    fields[entry.key().sym()] = entry.val();
+    fields[entry.key().sym().toString()] = entry.val();
   }
   return {
     id: decodeBytes32(fields["id"]!),
@@ -185,6 +185,15 @@ export async function deactivateAttester(
   return submitAndWait(signedXdr, config);
 }
 
+/**
+ * Write: create_attestation(attestation_id, event_id, attester, claim_hash)
+ *
+ * NOTE: the contract signature includes `attester: Address` as an explicit
+ * positional argument (used for `attester.require_auth()` and the
+ * `InvalidAttester` / `InactiveAttester` lookups) — a prior version of this
+ * function omitted it from the `.call()` args entirely, sending only 3 of
+ * the 4 required arguments. Fixed as part of #59's ABI audit.
+ */
 export async function createAttestation(
   params: {
     attestationId: string;
@@ -206,6 +215,7 @@ export async function createAttestation(
         "create_attestation",
         encodeBytes32(params.attestationId),
         encodeBytes32(params.eventId),
+        encodeAddress(params.attester),
         encodeBytes32(params.claimHash)
       )
     )
