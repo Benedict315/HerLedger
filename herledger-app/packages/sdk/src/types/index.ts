@@ -2,6 +2,8 @@
 // Application-level types mirroring on-chain contract structures
 // ---------------------------------------------------------------------------
 
+export type { StellarNetworkConfig, ContractConfig } from "@herledger/config";
+
 export interface Business {
   id: string; // hex-encoded BytesN<32>
   owner: string; // Stellar address
@@ -23,7 +25,7 @@ export interface FinancialEvent {
   businessId: string; // hex-encoded BytesN<32>
   eventType: EventType;
   asset: string; // Stellar asset contract address
-  amount: bigint; // i128 — always bigint, never Number
+  amount: bigint; // i128 -- always bigint, never Number
   stellarReference: string; // hex-encoded BytesN<32>
   metadataHash: string; // hex-encoded BytesN<32>
   status: EventStatus;
@@ -45,19 +47,6 @@ export interface Attestation {
   claimHash: string; // hex-encoded BytesN<32>
   issuedAt: bigint; // u64
   status: AttestationStatus;
-}
-
-export interface StellarNetworkConfig {
-  network: "testnet" | "mainnet";
-  rpcUrl: string;
-  horizonUrl: string;
-  networkPassphrase: string;
-}
-
-export interface ContractConfig {
-  businessRegistryId: string;
-  financialLedgerId: string;
-  attestationRegistryId: string;
 }
 
 export interface TransactionResult {

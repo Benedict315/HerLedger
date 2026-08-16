@@ -5,7 +5,7 @@ import { fetchTransactionsForAccount, fetchLatestLedger } from "../stellar/rpc.j
 import { parseAmount } from "../stellar/transactions.js";
 import { isSuccessfulTransaction, getTransactionLedger } from "../stellar/verification.js";
 import { indexPayment } from "../index/financial-events.js";
-import { getStellarNetworkConfig, getContractConfig } from "../config/index.js";
+import { getStellarNetworkConfig, getContractConfig, validateNetworkConsistency } from "@herledger/config";
 import { IndexerError } from "../types/index.js";
 import type { ParsedPayment } from "../types/index.js";
 
@@ -20,6 +20,12 @@ export async function runSyncJob(): Promise<void> {
   const prisma = getPrismaClient();
   const stellarConfig = getStellarNetworkConfig();
   const contractConfig = getContractConfig();
+
+  validateNetworkConsistency(
+    stellarConfig.network,
+    stellarConfig.rpcUrl,
+    stellarConfig.networkPassphrase
+  );
 
   console.log({ job: "sync-ledger", event: "start", network: stellarConfig.network });
 
@@ -88,7 +94,7 @@ async function syncCycle(
           ledgerSequence: ledger,
           successful: tx.successful,
           sourceAddress: tx.source_account,
-          // For payment ops, destination comes from the operation — simplified here
+          // For payment ops, destination comes from the operation Ã¢â‚¬â€ simplified here
           // The full implementation fetches operations per transaction
           destinationAddress: "",
           assetAddress: "",
