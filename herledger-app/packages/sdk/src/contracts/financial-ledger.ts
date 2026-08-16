@@ -71,7 +71,7 @@ function decodeFinancialEvent(val: xdr.ScVal): FinancialEvent {
 
   const fields: Record<string, xdr.ScVal> = {};
   for (const entry of map) {
-    fields[entry.key().sym()] = entry.val();
+    fields[entry.key().sym().toString()] = entry.val();
   }
 
   return {
@@ -232,6 +232,15 @@ export async function recordFinancialEvent(
   return submitAndWait(signedXdr, config);
 }
 
+/**
+ * Write: dispute_event(event_id, business_owner, reason_hash)
+ *
+ * NOTE: the contract requires `business_owner: Address` as an explicit
+ * argument (it calls `business_owner.require_auth()` directly rather than
+ * loading the owner from storage) — a prior version of this function
+ * omitted it, which would have failed at the RPC layer with an argument
+ * count mismatch. Fixed as part of #59's ABI audit.
+ */
 export async function disputeFinancialEvent(
   params: {
     eventId: string;
@@ -251,6 +260,7 @@ export async function disputeFinancialEvent(
       contract.call(
         "dispute_event",
         encodeBytes32(params.eventId),
+        encodeAddress(params.owner),
         encodeBytes32(params.reasonHash)
       )
     )

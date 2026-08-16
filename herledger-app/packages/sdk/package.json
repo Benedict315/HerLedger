@@ -10,7 +10,10 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "generate:abi": "node scripts/generate-abi-types.mjs",
+    "generate:abi:check": "node scripts/generate-abi-types.mjs --check",
+    "test:smoke": "TEST_AGAINST_TESTNET=true vitest run src/contracts/__tests__/smoke.testnet.test.ts"
   },
   "dependencies": {
     "@herledger/config": "workspace:*",
@@ -22,6 +25,7 @@
     "typescript": "7.0.2",
     "vitest": "4.1.10",
     "vite": "6.3.5",
-    "@vitest/coverage-v8": "4.1.10"
+    "@vitest/coverage-v8": "4.1.10",
+    "@types/node": "^24.0.10"
   }
 }
