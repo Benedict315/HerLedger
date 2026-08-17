@@ -5,7 +5,8 @@ import { fetchTransactionsForAccount, fetchLatestLedger } from "../stellar/rpc.j
 import { parseAmount } from "../stellar/transactions.js";
 import { isSuccessfulTransaction, getTransactionLedger } from "../stellar/verification.js";
 import { indexPayment } from "../index/financial-events.js";
-import { getStellarNetworkConfig, getContractConfig, validateNetworkConsistency } from "@herledger/config";
+import { getStellarNetworkConfig, getContractConfig as getRawContractConfig, validateNetworkConsistency } from "@herledger/config";
+import { registerCurrentNetworkAddresses, buildContractConfig, type ContractConfig } from "@herledger/sdk";
 import { IndexerError } from "../types/index.js";
 import type { ParsedPayment } from "../types/index.js";
 
@@ -19,7 +20,9 @@ const SYNC_INTERVAL_MS = 30_000; // 30 seconds between sync cycles
 export async function runSyncJob(): Promise<void> {
   const prisma = getPrismaClient();
   const stellarConfig = getStellarNetworkConfig();
-  const contractConfig = getContractConfig();
+  const rawContractConfig = getRawContractConfig();
+  const registry = registerCurrentNetworkAddresses(stellarConfig.network, rawContractConfig);
+  const contractConfig = buildContractConfig(registry, stellarConfig.network, rawContractConfig);
 
   validateNetworkConsistency(
     stellarConfig.network,
@@ -46,7 +49,7 @@ export async function runSyncJob(): Promise<void> {
 async function syncCycle(
   prisma: ReturnType<typeof getPrismaClient>,
   stellarConfig: ReturnType<typeof getStellarNetworkConfig>,
-  contractConfig: ReturnType<typeof getContractConfig>
+  contractConfig: ContractConfig
 ): Promise<void> {
   const latestLedger = await fetchLatestLedger(stellarConfig);
   const lastCheckpoint = await getCheckpoint(prisma, MAIN_STREAM);
@@ -94,7 +97,7 @@ async function syncCycle(
           ledgerSequence: ledger,
           successful: tx.successful,
           sourceAddress: tx.source_account,
-          // For payment ops, destination comes from the operation Ã¢â‚¬â€ simplified here
+          // For payment ops, destination comes from the operation ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â simplified here
           // The full implementation fetches operations per transaction
           destinationAddress: "",
           assetAddress: "",
@@ -137,7 +140,7 @@ async function processTransactionOperations(
   walletAddress: string,
   prisma: ReturnType<typeof getPrismaClient>,
   stellarConfig: ReturnType<typeof getStellarNetworkConfig>,
-  contractConfig: ReturnType<typeof getContractConfig>
+  contractConfig: ContractConfig
 ): Promise<void> {
   // Operations are fetched via Horizon operations endpoint in a full implementation.
   // Here we record the transaction as a payment candidate and let the indexPayment

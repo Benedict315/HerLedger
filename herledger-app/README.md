@@ -511,10 +511,149 @@ The application will throw a descriptive startup error if contract IDs are missi
 
 ---
 
+## Contract ABI Management
+
+HerLedger's SDK (`packages/sdk`) hand-writes TypeScript clients
+(`contracts/business-registry.ts`, `financial-ledger.ts`,
+`attestation-registry.ts`) that construct XDR-encoded calls against the
+deployed Soroban contracts. Nothing prevents those hand-written clients from
+drifting out of sync with what a contract actually expects — a redeployed
+contract with a renamed field or reordered parameter would previously fail
+silently or with an inscrutable RPC error, discovered only at runtime. Two
+mechanisms close that gap:
+
+### 1. `ContractAddress` — compile-time contract-address safety
+
+Contract addresses are no longer plain `string`. `ContractConfig` requires
+the branded `ContractAddress` type (`packages/sdk/src/types/branded.ts`),
+which can only be produced by validating a raw address against the
+`CONTRACT_ADDRESSES` registry (`packages/sdk/src/contracts/registry.ts`):
+
+```typescript
+import { registerCurrentNetworkAddresses, buildContractConfig } from "@herledger/sdk";
+import { getServerEnv } from "@herledger/config";
+
+const env = getServerEnv();
+
+const network = env.STELLAR_NETWORK; // "testnet" | "mainnet"
+
+const registry = registerCurrentNetworkAddresses(network, {
+  businessRegistryId: env.BUSINESS_REGISTRY_CONTRACT_ID,
+  financialLedgerId: env.FINANCIAL_LEDGER_CONTRACT_ID,
+  attestationRegistryId: env.ATTESTATION_REGISTRY_CONTRACT_ID,
+});
+
+const contracts = buildContractConfig(registry, network, {
+  businessRegistryId: env.BUSINESS_REGISTRY_CONTRACT_ID,
+  financialLedgerId: env.FINANCIAL_LEDGER_CONTRACT_ID,
+  attestationRegistryId: env.ATTESTATION_REGISTRY_CONTRACT_ID,
+});
+
+// contracts is now a validated ContractConfig — safe to pass to any SDK function.
+```
+
+`buildContractConfig` throws `ValidationError` immediately if an address is
+malformed or doesn't match the registry — e.g. the `FinancialLedger` address
+accidentally passed where `AttestationRegistry` was expected. Do this once at
+your app's composition root (e.g. `apps/web/lib/stellar/network.ts`) and pass
+the resulting `ContractConfig` through; don't construct one from raw strings
+inline — the type system will refuse it.
+
+### 2. Generated ABI types — catching upgrades at build time
+
+`packages/sdk/src/contracts/__generated__/` contains TypeScript interfaces
+generated directly from each contract's on-chain interface (via
+`stellar contract inspect`), not from the hand-written clients. They're the
+independent source of truth the hand-written clients are checked against.
+
+```sh
+# Regenerate after rebuilding contracts (requires herledger-contract WASM built):
+cd herledger-app
+pnpm --filter @herledger/sdk generate:abi
+
+# CI-style check — fails if committed types are stale, doesn't write:
+pnpm --filter @herledger/sdk generate:abi:check
+```
+
+CI runs `generate:abi:check` on every PR (job: `abi-check` in
+`.github/workflows/ci.yml`). If a contract's interface changed — a renamed
+method, a reordered parameter, a new required argument — the generated
+output will differ from what's committed and the build fails with an
+explicit diff, rather than the mismatch surfacing later as a runtime
+encoding error.
+
+**Handling a contract upgrade:**
+
+1. Rebuild the contract (`herledger-contract/scripts/build.sh`).
+2. Run `pnpm --filter @herledger/sdk generate:abi` and review the diff in
+   `__generated__/`.
+3. Cross-check the diff against the corresponding hand-written client in
+   `contracts/`. Update the `.call()` arguments, types, and any encode/decode
+   logic in `encoding.ts` to match.
+4. Update `CONTRACT_ADDRESSES` (via your env/config) if the deployment
+   address changed.
+5. Commit both the regenerated `__generated__/` files and the hand-written
+   client changes together — a PR that updates one without the other is
+   exactly the drift this workflow exists to prevent.
+
+This process itself surfaced two pre-existing bugs during development of
+this feature: `FinancialLedger.dispute_event` and
+`AttestationRegistry.create_attestation` were each missing a required
+`Address` argument in the hand-written client. Both are fixed as part of
+this same change.
+
+### 3. Testnet smoke tests
+
+`packages/sdk/src/contracts/__tests__/smoke.testnet.test.ts` calls one read
+method per contract against the real deployed testnet contracts, guarded by
+`TEST_AGAINST_TESTNET=true` so it never runs in normal `pnpm test`:
+
+```sh
+# Requires BUSINESS_REGISTRY_CONTRACT_ID, FINANCIAL_LEDGER_CONTRACT_ID,
+# ATTESTATION_REGISTRY_CONTRACT_ID set to real testnet contract IDs.
+pnpm --filter @herledger/sdk test:smoke
+```
+
+CI runs this nightly and on manual dispatch (job: `testnet-smoke`), using
+`TESTNET_BUSINESS_REGISTRY_CONTRACT_ID` / `TESTNET_FINANCIAL_LEDGER_CONTRACT_ID`
+/ `TESTNET_ATTESTATION_REGISTRY_CONTRACT_ID` repo secrets — configure these
+under **Settings → Secrets and variables → Actions**. These are read-only
+calls; no funded account or signing key is required.
+
+===
+
 ## SDK Reference
 
 `packages/sdk` is the single source of truth for all Stellar/Soroban client interactions.
 React components must not construct contract calls directly.
+
+### Constructing a ContractConfig
+
+Every SDK contract function takes a `ContractConfig`, whose fields are the
+branded `ContractAddress` type rather than raw `string` — see
+[Contract ABI Management](#contract-abi-management) for why. Build one once
+at startup:
+
+```typescript
+import { registerCurrentNetworkAddresses, buildContractConfig } from "@herledger/sdk";
+
+const network = env.STELLAR_NETWORK; // "testnet" | "mainnet"
+
+const registry = registerCurrentNetworkAddresses(network, {
+  businessRegistryId: env.BUSINESS_REGISTRY_CONTRACT_ID,
+  financialLedgerId: env.FINANCIAL_LEDGER_CONTRACT_ID,
+  attestationRegistryId: env.ATTESTATION_REGISTRY_CONTRACT_ID,
+});
+
+const contracts = buildContractConfig(registry, network, {
+  businessRegistryId: env.BUSINESS_REGISTRY_CONTRACT_ID,
+  financialLedgerId: env.FINANCIAL_LEDGER_CONTRACT_ID,
+  attestationRegistryId: env.ATTESTATION_REGISTRY_CONTRACT_ID,
+});
+```
+
+In practice, don't call this inline at every use site — both `apps/web/lib/stellar/network.ts` (`getContractConfig()`, browser-safe) and `indexer/src/config/index.ts` (`getContractConfig()`, server-side) already do this once and export the result. Import from there rather than duplicating the registry construction in a component or route handler.
+
 
 ### BusinessRegistry
 

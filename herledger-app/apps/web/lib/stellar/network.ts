@@ -1,9 +1,49 @@
 import { Networks } from "@stellar/stellar-sdk";
 import { getPublicEnv } from "@herledger/config";
+import {
+  registerCurrentNetworkAddresses,
+  buildContractConfig,
+  type ContractConfig,
+  type NetworkId,
+} from "@herledger/sdk";
 
 export function getNetworkPassphrase(): string {
   const env = getPublicEnv();
   return env.NEXT_PUBLIC_STELLAR_NETWORK === "mainnet"
     ? Networks.PUBLIC
     : Networks.TESTNET;
+}
+
+/**
+ * Browser-safe `ContractConfig`, built from `NEXT_PUBLIC_*_CONTRACT_ID`.
+ *
+ * This is the single source of truth for client-side contract address
+ * construction — components should import this rather than each defining
+ * their own local `getContractConfig()` (previously duplicated in
+ * `business-registration-form.tsx` and `dispute-form.tsx`).
+ *
+ * Its fields are the branded `ContractAddress` type rather than raw
+ * `string` — see packages/sdk/src/types/branded.ts. `registerCurrentNetworkAddresses`
+ * registers each address under whichever network `NEXT_PUBLIC_STELLAR_NETWORK`
+ * is actually set to (there's only one set of `*_CONTRACT_ID` vars — no
+ * separate mainnet vars yet — so this must not hardcode "testnet").
+ *
+ * Throws `ValidationError` if a configured address is malformed — surfacing
+ * a misconfigured env var at startup instead of at first contract call.
+ */
+export function getContractConfig(): ContractConfig {
+  const env = getPublicEnv();
+  const network: NetworkId = env.NEXT_PUBLIC_STELLAR_NETWORK;
+
+  const registry = registerCurrentNetworkAddresses(network, {
+    businessRegistryId: env.NEXT_PUBLIC_BUSINESS_REGISTRY_CONTRACT_ID,
+    financialLedgerId: env.NEXT_PUBLIC_FINANCIAL_LEDGER_CONTRACT_ID,
+    attestationRegistryId: env.NEXT_PUBLIC_ATTESTATION_REGISTRY_CONTRACT_ID,
+  });
+
+  return buildContractConfig(registry, network, {
+    businessRegistryId: env.NEXT_PUBLIC_BUSINESS_REGISTRY_CONTRACT_ID,
+    financialLedgerId: env.NEXT_PUBLIC_FINANCIAL_LEDGER_CONTRACT_ID,
+    attestationRegistryId: env.NEXT_PUBLIC_ATTESTATION_REGISTRY_CONTRACT_ID,
+  });
 }
