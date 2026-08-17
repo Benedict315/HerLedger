@@ -15,6 +15,7 @@ import type { ParsedPayment } from "../types/index.js";
 // ---------------------------------------------------------------------------
 
 const SYNC_INTERVAL_MS = 30_000; // 30 seconds between sync cycles
+const WALLET_PAGE_SIZE = 100;
 
 export async function runSyncJob(): Promise<void> {
   const prisma = getPrismaClient();
@@ -52,67 +53,84 @@ async function syncCycle(
     latestLedger,
   });
 
-  // Fetch all active business wallets
-  const wallets = await findAllActiveBusinessWallets(prisma);
-  if (wallets.length === 0) {
-    await saveCheckpoint(prisma, MAIN_STREAM, latestLedger);
-    return;
-  }
-
   let maxProcessedLedger = lastCheckpoint;
+  let anyWallets = false;
 
-  for (const { walletAddress } of wallets) {
-    let cursor: string | undefined;
+  // Iterate active business wallets in cursor pages -- never load the full
+  // set into memory at once. Each page is fetched only after the previous
+  // one has been fully processed.
+  let walletCursor: string | undefined;
+  while (true) {
+    const { wallets, nextCursor } = await findAllActiveBusinessWallets(prisma, {
+      cursor: walletCursor,
+      pageSize: WALLET_PAGE_SIZE,
+    });
 
-    // Paginate through all transactions for this wallet
-    while (true) {
-      const { transactions, nextCursor } = await fetchTransactionsForAccount(
-        walletAddress,
-        stellarConfig.horizonUrl,
-        cursor
-      );
+    if (wallets.length > 0) {
+      anyWallets = true;
+    }
 
-      for (const tx of transactions) {
-        const ledger = getTransactionLedger(tx);
+    for (const { walletAddress } of wallets) {
+      let txCursor: string | undefined;
 
-        // Only process ledgers after our last checkpoint
-        if (ledger <= lastCheckpoint) continue;
-
-        if (!isSuccessfulTransaction(tx)) continue;
-
-        // Parse operations from the transaction envelope
-        // Horizon transactions include operations via a separate call or envelope
-        // We process each tx as a potential payment
-        const payment: ParsedPayment = {
-          transactionHash: tx.hash,
-          ledgerSequence: ledger,
-          successful: tx.successful,
-          sourceAddress: tx.source_account,
-          // For payment ops, destination comes from the operation — simplified here
-          // The full implementation fetches operations per transaction
-          destinationAddress: "",
-          assetAddress: "",
-          amount: 0n,
-        };
-
-        // Only process if we can derive the payment details
-        // Actual operation parsing is done in the operations fetcher below
-        await processTransactionOperations(
-          tx,
+      // Paginate through all transactions for this wallet
+      while (true) {
+        const { transactions, nextCursor: nextTxCursor } = await fetchTransactionsForAccount(
           walletAddress,
-          prisma,
-          stellarConfig,
-          contractConfig
+          stellarConfig.horizonUrl,
+          txCursor
         );
 
-        if (ledger > maxProcessedLedger) {
-          maxProcessedLedger = ledger;
-        }
-      }
+        for (const tx of transactions) {
+          const ledger = getTransactionLedger(tx);
 
-      if (!nextCursor || transactions.length === 0) break;
-      cursor = nextCursor;
+          // Only process ledgers after our last checkpoint
+          if (ledger <= lastCheckpoint) continue;
+
+          if (!isSuccessfulTransaction(tx)) continue;
+
+          // Parse operations from the transaction envelope
+          // Horizon transactions include operations via a separate call or envelope
+          // We process each tx as a potential payment
+          const payment: ParsedPayment = {
+            transactionHash: tx.hash,
+            ledgerSequence: ledger,
+            successful: tx.successful,
+            sourceAddress: tx.source_account,
+            // For payment ops, destination comes from the operation -- simplified here
+            // The full implementation fetches operations per transaction
+            destinationAddress: "",
+            assetAddress: "",
+            amount: 0n,
+          };
+
+          // Only process if we can derive the payment details
+          // Actual operation parsing is done in the operations fetcher below
+          await processTransactionOperations(
+            tx,
+            walletAddress,
+            prisma,
+            stellarConfig,
+            contractConfig
+          );
+
+          if (ledger > maxProcessedLedger) {
+            maxProcessedLedger = ledger;
+          }
+        }
+
+        if (!nextTxCursor || transactions.length === 0) break;
+        txCursor = nextTxCursor;
+      }
     }
+
+    if (!nextCursor) break;
+    walletCursor = nextCursor;
+  }
+
+  if (!anyWallets) {
+    await saveCheckpoint(prisma, MAIN_STREAM, latestLedger);
+    return;
   }
 
   // Persist checkpoint only after successful processing
