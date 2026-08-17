@@ -40,6 +40,7 @@ export function ActivityList() {
   }, [offset]);
 
   if (loading) return <LoadingSpinner label="Loading activity…" />;
+  
   if (error) {
     return (
       <div role="alert" style={{ color: "var(--danger)" }}>
@@ -47,6 +48,7 @@ export function ActivityList() {
       </div>
     );
   }
+  
   if (events.length === 0 && offset === 0) {
     return (
       <EmptyState
@@ -79,7 +81,7 @@ export function ActivityList() {
                 {formatAmount(BigInt(event.amount))}
               </td>
               <td style={{ padding: "0.75rem" }}>
-                <StatusBadge status={event.status} />
+                <StatusBadge status={event.status as "Pending" | "Verified" | "Disputed" | "Revoked"} />
               </td>
               <td style={{ padding: "0.75rem", color: "var(--muted)" }}>
                 {event.ledgerSequence}
@@ -95,7 +97,7 @@ export function ActivityList() {
                   whiteSpace: "nowrap",
                 }}
               >
-                
+                <a
                   href={`https://stellar.expert/explorer/testnet/tx/${event.stellarReference}`}
                   target="_blank"
                   rel="noopener noreferrer"
