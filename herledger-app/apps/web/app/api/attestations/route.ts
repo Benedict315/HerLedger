@@ -18,20 +18,30 @@ export async function GET() {
     where: { userId: session.user.id },
     select: { businessId: true },
   });
-
   if (!profile) {
     return NextResponse.json({ data: { attestations: [] }, error: null });
   }
 
+  // Single round-trip: fetch this business's events together with their
+  // attestations via the FinancialEvent -> Attestation relation, instead of
+  // a separate findMany per event. Reduces this endpoint to 2 DB calls total
+  // (profile lookup + this query) regardless of event count.
   const events = await prisma.financialEvent.findMany({
     where: { businessId: profile.businessId },
-    select: { eventId: true },
+    select: {
+      eventId: true,
+      attestations: {
+        orderBy: { ledgerSequence: "desc" },
+      },
+    },
   });
 
-  const attestations = await prisma.attestation.findMany({
-    where: { eventId: { in: events.map((e) => e.eventId) } },
-    orderBy: { ledgerSequence: "desc" },
-  });
+  const attestations = events
+    .flatMap((event: { attestations: unknown[] }) => event.attestations)
+    .sort(
+      (a: { ledgerSequence: number }, b: { ledgerSequence: number }) =>
+        b.ledgerSequence - a.ledgerSequence
+    );
 
   return NextResponse.json({ data: { attestations }, error: null });
 }
