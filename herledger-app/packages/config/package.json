@@ -9,12 +9,17 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src --ext .ts"
+    "lint": "eslint src --ext .ts",
+    "test": "vitest run"
   },
   "dependencies": {
+    "@stellar/stellar-sdk": "16.2.0",
     "zod": "4.4.3"
   },
   "devDependencies": {
-    "typescript": "7.0.2"
+    "typescript": "7.0.2",
+    "@types/node": "24.0.10",
+    "vitest": "4.1.10",
+    "vite": "6.3.5"
   }
 }

@@ -10,6 +10,10 @@ export type {
   StellarNetworkConfig,
   ContractConfig,
   TransactionResult,
+  NetworkId,
+  Brand,
+  ContractAddress,
+  HexString32,
 } from "./types/index.js";
 
 // Errors
@@ -48,6 +52,19 @@ export {
   decodeBool,
   hexToBytes,
 } from "./contracts/encoding.js";
+
+// Contract address registry
+export {
+  CONTRACT_NAMES,
+  createContractAddressRegistry,
+  registerCurrentNetworkAddresses,
+  toContractAddress,
+  buildContractConfig,
+} from "./contracts/registry.js";
+export type { ContractName, ContractAddressRegistry, ContractAddressRegistryEntry } from "./contracts/registry.js";
+
+// Generated ABI types
+export * from "./contracts/__generated__/index.js";
 
 // BusinessRegistry
 export {

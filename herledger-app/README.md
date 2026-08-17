@@ -1,8 +1,8 @@
-# HerLedger — Application Layer
+# HerLedger â€” Application Layer
 
 HerLedger is a financial-history platform for women-owned businesses built on
 the Stellar blockchain. It records recognized Stellar transactions and verified
-attestations so a business can build a portable, auditable financial history —
+attestations so a business can build a portable, auditable financial history â€”
 without storing unnecessary private information on-chain.
 
 > **HerLedger does not** issue loans, calculate credit scores, make lending
@@ -44,7 +44,7 @@ without storing unnecessary private information on-chain.
 | Business registration | Register a woman-owned business on-chain via the BusinessRegistry Soroban contract |
 | Wallet association | Link a Stellar wallet address to a business identity |
 | Financial activity | Detect and index supported Stellar payment transactions |
-| Event verification | Track Pending → Verified → Disputed → Revoked lifecycle |
+| Event verification | Track Pending â†’ Verified â†’ Disputed â†’ Revoked lifecycle |
 | Attestations | Display third-party claims linked to financial events |
 | Dispute flow | Allow a business owner to challenge an incorrect record on-chain |
 | Privacy | Keep private metadata off-chain; commit only cryptographic hashes |
@@ -56,34 +56,34 @@ without storing unnecessary private information on-chain.
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│                        User                              │
-└──────────┬──────────────────────────┬────────────────────┘
-           │                          │
-           ▼                          ▼
-┌──────────────────┐       ┌──────────────────────┐
-│  Next.js 16 Web  │       │   Freighter Wallet   │
-│  (App Router)    │       │   (browser ext.)     │
-│                  │       └──────────┬───────────┘
-│  Better Auth     │                  │ signs txns
-│  (app sessions)  │                  ▼
-│                  │       ┌──────────────────────┐
-│  Server Actions  │       │  Stellar Network     │
-│  API Routes      │       │  Soroban Contracts   │
-└──────┬───────────┘       └──────────────────────┘
-       │ reads                        ▲
-       ▼                              │ observes
-┌──────────────────┐       ┌──────────────────────┐
-│  Indexer API     │◄──────│  Indexer Process     │
-│  (Fastify)       │       │  (ledger sync job)   │
-└──────┬───────────┘       └──────────────────────┘
-       │
-       ▼
-┌──────────────────┐
-│   PostgreSQL     │
-│   (derived       │
-│    index only)   │
-└──────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚                        User                              â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+           â”‚                          â”‚
+           â–¼                          â–¼
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”       â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚  Next.js 16 Web  â”‚       â”‚   Freighter Wallet   â”‚
+â”‚  (App Router)    â”‚       â”‚   (browser ext.)     â”‚
+â”‚                  â”‚       â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+â”‚  Better Auth     â”‚                  â”‚ signs txns
+â”‚  (app sessions)  â”‚                  â–¼
+â”‚                  â”‚       â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚  Server Actions  â”‚       â”‚  Stellar Network     â”‚
+â”‚  API Routes      â”‚       â”‚  Soroban Contracts   â”‚
+â””â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜       â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+       â”‚ reads                        â–²
+       â–¼                              â”‚ observes
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”       â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚  Indexer API     â”‚â—„â”€â”€â”€â”€â”€â”€â”‚  Indexer Process     â”‚
+â”‚  (Fastify)       â”‚       â”‚  (ledger sync job)   â”‚
+â””â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜       â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+       â”‚
+       â–¼
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚   PostgreSQL     â”‚
+â”‚   (derived       â”‚
+â”‚    index only)   â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 ### Key principles
@@ -92,7 +92,7 @@ without storing unnecessary private information on-chain.
 - **The indexer observes.** It does not initiate contract writes.
 - **The database is an index.** Stellar is the source of truth.
 - **Blockchain-derived records are immutable** after indexing (no silent rewrites).
-- **Application auth is separate from wallet auth.** Signing in ≠ wallet connected.
+- **Application auth is separate from wallet auth.** Signing in â‰  wallet connected.
 
 ---
 
@@ -100,69 +100,69 @@ without storing unnecessary private information on-chain.
 
 ```
 HerLedger/
-├── herledger-contract/          Soroban smart contracts (Rust)
-│   ├── contracts/
-│   │   ├── business_registry/
-│   │   ├── financial_ledger/
-│   │   └── attestation_registry/
-│   └── target/wasm32v1-none/release/   Built WASM artifacts
-│
-└── herledger-app/               Application layer (this directory)
-    ├── apps/
-    │   └── web/                 Next.js 16 frontend
-    │       ├── app/
-    │       │   ├── (marketing)/ Public landing page
-    │       │   ├── dashboard/   Authenticated dashboard
-    │       │   ├── auth/        Sign in / sign up
-    │       │   └── api/         API route handlers
-    │       ├── components/      React components
-    │       │   ├── ui/          Design system primitives
-    │       │   ├── wallet/      Freighter integration
-    │       │   ├── business/    Business profile & registration
-    │       │   ├── activity/    Financial activity display
-    │       │   ├── attestations/Attestation display
-    │       │   ├── disputes/    Dispute submission
-    │       │   ├── navigation/  App shell navigation
-    │       │   └── settings/    Account & privacy settings
-    │       ├── lib/
-    │       │   ├── auth/        Better Auth client & server
-    │       │   ├── stellar/     Network configuration helpers
-    │       │   └── utils/       Formatting utilities
-    │       ├── middleware.ts     Route protection
-    │       └── next.config.ts
-    │
-    ├── packages/
-    │   ├── config/              Typed environment validation (Zod)
-    │   └── sdk/                 Stellar/Soroban TypeScript SDK
-    │       └── src/
-    │           ├── contracts/   Contract clients + XDR encoding
-    │           ├── rpc/         Soroban RPC client factory
-    │           ├── wallet/      Freighter adapter
-    │           ├── types/       Shared TypeScript types
-    │           └── errors/      Typed error classes
-    │
-    ├── indexer/                 Transaction indexer + HTTP API
-    │   └── src/
-    │       ├── api/             Fastify routes
-    │       ├── config/          Env config
-    │       ├── db/              Prisma client + repositories
-    │       ├── index/           Indexing business logic
-    │       ├── jobs/            Sync job (ledger polling)
-    │       ├── stellar/         Horizon + RPC helpers
-    │       └── types/           Indexer-specific types
-    │
-    ├── prisma/
-    │   ├── schema.prisma        Database schema
-    │   └── migrations/          Applied migrations
-    │
-    ├── scripts/
-    │   ├── dev.sh               Start all services
-    │   ├── test.sh              Run test suite
-    │   └── generate-client.sh   Regenerate Prisma client
-    │
-    ├── .env.example             Required environment variables
-    ├── pnpm-workspace.yaml      Monorepo workspace config
-    └── README.md                This file
+â”œâ”€â”€ herledger-contract/          Soroban smart contracts (Rust)
+â”‚   â”œâ”€â”€ contracts/
+â”‚   â”‚   â”œâ”€â”€ business_registry/
+â”‚   â”‚   â”œâ”€â”€ financial_ledger/
+â”‚   â”‚   â””â”€â”€ attestation_registry/
+â”‚   â””â”€â”€ target/wasm32v1-none/release/   Built WASM artifacts
+â”‚
+â””â”€â”€ herledger-app/               Application layer (this directory)
+    â”œâ”€â”€ apps/
+    â”‚   â””â”€â”€ web/                 Next.js 16 frontend
+    â”‚       â”œâ”€â”€ app/
+    â”‚       â”‚   â”œâ”€â”€ (marketing)/ Public landing page
+    â”‚       â”‚   â”œâ”€â”€ dashboard/   Authenticated dashboard
+    â”‚       â”‚   â”œâ”€â”€ auth/        Sign in / sign up
+    â”‚       â”‚   â””â”€â”€ api/         API route handlers
+    â”‚       â”œâ”€â”€ components/      React components
+    â”‚       â”‚   â”œâ”€â”€ ui/          Design system primitives
+    â”‚       â”‚   â”œâ”€â”€ wallet/      Freighter integration
+    â”‚       â”‚   â”œâ”€â”€ business/    Business profile & registration
+    â”‚       â”‚   â”œâ”€â”€ activity/    Financial activity display
+    â”‚       â”‚   â”œâ”€â”€ attestations/Attestation display
+    â”‚       â”‚   â”œâ”€â”€ disputes/    Dispute submission
+    â”‚       â”‚   â”œâ”€â”€ navigation/  App shell navigation
+    â”‚       â”‚   â””â”€â”€ settings/    Account & privacy settings
+    â”‚       â”œâ”€â”€ lib/
+    â”‚       â”‚   â”œâ”€â”€ auth/        Better Auth client & server
+    â”‚       â”‚   â”œâ”€â”€ stellar/     Network configuration helpers
+    â”‚       â”‚   â””â”€â”€ utils/       Formatting utilities
+    â”‚       â”œâ”€â”€ middleware.ts     Route protection
+    â”‚       â””â”€â”€ next.config.ts
+    â”‚
+    â”œâ”€â”€ packages/
+    â”‚   â”œâ”€â”€ config/              Typed environment validation (Zod)
+    â”‚   â””â”€â”€ sdk/                 Stellar/Soroban TypeScript SDK
+    â”‚       â””â”€â”€ src/
+    â”‚           â”œâ”€â”€ contracts/   Contract clients + XDR encoding
+    â”‚           â”œâ”€â”€ rpc/         Soroban RPC client factory
+    â”‚           â”œâ”€â”€ wallet/      Freighter adapter
+    â”‚           â”œâ”€â”€ types/       Shared TypeScript types
+    â”‚           â””â”€â”€ errors/      Typed error classes
+    â”‚
+    â”œâ”€â”€ indexer/                 Transaction indexer + HTTP API
+    â”‚   â””â”€â”€ src/
+    â”‚       â”œâ”€â”€ api/             Fastify routes
+    â”‚       â”œâ”€â”€ config/          Env config
+    â”‚       â”œâ”€â”€ db/              Prisma client + repositories
+    â”‚       â”œâ”€â”€ index/           Indexing business logic
+    â”‚       â”œâ”€â”€ jobs/            Sync job (ledger polling)
+    â”‚       â”œâ”€â”€ stellar/         Horizon + RPC helpers
+    â”‚       â””â”€â”€ types/           Indexer-specific types
+    â”‚
+    â”œâ”€â”€ prisma/
+    â”‚   â”œâ”€â”€ schema.prisma        Database schema
+    â”‚   â””â”€â”€ migrations/          Applied migrations
+    â”‚
+    â”œâ”€â”€ scripts/
+    â”‚   â”œâ”€â”€ dev.sh               Start all services
+    â”‚   â”œâ”€â”€ test.sh              Run test suite
+    â”‚   â””â”€â”€ generate-client.sh   Regenerate Prisma client
+    â”‚
+    â”œâ”€â”€ .env.example             Required environment variables
+    â”œâ”€â”€ pnpm-workspace.yaml      Monorepo workspace config
+    â””â”€â”€ README.md                This file
 ```
 
 ---
@@ -171,7 +171,7 @@ HerLedger/
 
 | Layer | Technology | Version |
 |-------|-----------|---------|
-| Runtime | Node.js | ≥20.9.0 |
+| Runtime | Node.js | â‰¥20.9.0 |
 | Package manager | pnpm | 9+ |
 | Frontend framework | Next.js | 16.3.1 |
 | UI library | React | 19.2.8 |
@@ -277,10 +277,10 @@ bash scripts/dev.sh
 Or run each service separately:
 
 ```sh
-# Terminal 1 — web app
+# Terminal 1 â€” web app
 pnpm --filter web dev
 
-# Terminal 2 — indexer
+# Terminal 2 â€” indexer
 pnpm --filter indexer dev
 ```
 
@@ -294,32 +294,32 @@ pnpm --filter indexer dev
 All required variables are documented in `.env.example`.
 
 ```env
-# ── Application ────────────────────────────────────────────
+# â”€â”€ Application â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 NODE_ENV=development
 APP_URL=http://localhost:3000
 
-# ── Database ───────────────────────────────────────────────
+# â”€â”€ Database â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 DATABASE_URL=postgresql://user:password@localhost:5432/herledger_dev
 
-# ── Authentication ─────────────────────────────────────────
+# â”€â”€ Authentication â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # Generate with: openssl rand -hex 32
 BETTER_AUTH_SECRET=
 
-# ── Stellar (server-side) ──────────────────────────────────
+# â”€â”€ Stellar (server-side) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 STELLAR_NETWORK=testnet
 STELLAR_RPC_URL=https://soroban-testnet.stellar.org
 STELLAR_HORIZON_URL=https://horizon-testnet.stellar.org
 STELLAR_NETWORK_PASSPHRASE=Test SDF Network ; September 2015
 
-# ── Contract IDs (populate after deployment) ───────────────
+# â”€â”€ Contract IDs (populate after deployment) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 BUSINESS_REGISTRY_CONTRACT_ID=
 FINANCIAL_LEDGER_CONTRACT_ID=
 ATTESTATION_REGISTRY_CONTRACT_ID=
 
-# ── Indexer ────────────────────────────────────────────────
+# â”€â”€ Indexer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 INDEXER_API_URL=http://localhost:4000
 
-# ── Browser-safe (NEXT_PUBLIC_*) ───────────────────────────
+# â”€â”€ Browser-safe (NEXT_PUBLIC_*) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 NEXT_PUBLIC_STELLAR_NETWORK=testnet
 NEXT_PUBLIC_STELLAR_RPC_URL=https://soroban-testnet.stellar.org
 NEXT_PUBLIC_BUSINESS_REGISTRY_CONTRACT_ID=
@@ -354,7 +354,7 @@ NEXT_PUBLIC_ATTESTATION_REGISTRY_CONTRACT_ID=
 
 ### Key database rules
 
-- `amount` is stored as `String` — never cast to `Number`.
+- `amount` is stored as `String` â€” never cast to `Number`.
 - Blockchain-derived fields (`stellarReference`, `amount`, `assetAddress`) are **immutable** after first insert.
 - Only `status` is updated by the indexer after initial indexing.
 - UUIDs / cuid for application IDs; hex strings for on-chain IDs.
@@ -433,13 +433,13 @@ pnpm test:e2e
 ```
 
 Tests use **Vitest** for unit/integration and **Playwright** for E2E.
-E2E tests must not depend on Mainnet — use Testnet or mocks.
+E2E tests must not depend on Mainnet â€” use Testnet or mocks.
 
 ---
 
 ## Deployment
 
-### Frontend — Vercel (or equivalent)
+### Frontend â€” Vercel (or equivalent)
 
 | Setting | Value |
 |---------|-------|
@@ -450,7 +450,9 @@ E2E tests must not depend on Mainnet — use Testnet or mocks.
 
 Set all environment variables in the Vercel dashboard.
 - Never expose `DATABASE_URL` or `BETTER_AUTH_SECRET` as `NEXT_PUBLIC_*`.
-- All `NEXT_PUBLIC_*` variables must also be set.
+- All NEXT_PUBLIC_`*` variables must also be set.
+
+> **Network/passphrase consistency:** `STELLAR_NETWORK`, `STELLAR_RPC_URL`, and `STELLAR_NETWORK_PASSPHRASE` (and their `NEXT_PUBLIC_*` equivalents) must all agree. A `mainnet` network with a `testnet` passphrase, or an RPC URL pointing at the wrong network, will fail startup validation (`validateNetworkConsistency` in `@herledger/config`) with a descriptive error. Double-check all three values together whenever switching networks -- a mismatch here is a real-money risk on mainnet.
 
 Run Prisma migrations before deploying:
 
@@ -458,7 +460,7 @@ Run Prisma migrations before deploying:
 pnpm db:migrate
 ```
 
-### Indexer — Render (or equivalent long-running service)
+### Indexer â€” Render (or equivalent long-running service)
 
 | Setting | Value |
 |---------|-------|
@@ -469,7 +471,7 @@ pnpm db:migrate
 The indexer requires access to `DATABASE_URL` and all Stellar environment variables.
 It does **not** need `BETTER_AUTH_SECRET` or any `NEXT_PUBLIC_*` variables.
 
-### Database — PostgreSQL
+### Database â€” PostgreSQL
 
 - Provision PostgreSQL 16 in the same region as the indexer.
 - Use an internal/private connection string between indexer and database.
@@ -509,10 +511,149 @@ The application will throw a descriptive startup error if contract IDs are missi
 
 ---
 
+## Contract ABI Management
+
+HerLedger's SDK (`packages/sdk`) hand-writes TypeScript clients
+(`contracts/business-registry.ts`, `financial-ledger.ts`,
+`attestation-registry.ts`) that construct XDR-encoded calls against the
+deployed Soroban contracts. Nothing prevents those hand-written clients from
+drifting out of sync with what a contract actually expects — a redeployed
+contract with a renamed field or reordered parameter would previously fail
+silently or with an inscrutable RPC error, discovered only at runtime. Two
+mechanisms close that gap:
+
+### 1. `ContractAddress` — compile-time contract-address safety
+
+Contract addresses are no longer plain `string`. `ContractConfig` requires
+the branded `ContractAddress` type (`packages/sdk/src/types/branded.ts`),
+which can only be produced by validating a raw address against the
+`CONTRACT_ADDRESSES` registry (`packages/sdk/src/contracts/registry.ts`):
+
+```typescript
+import { registerCurrentNetworkAddresses, buildContractConfig } from "@herledger/sdk";
+import { getServerEnv } from "@herledger/config";
+
+const env = getServerEnv();
+
+const network = env.STELLAR_NETWORK; // "testnet" | "mainnet"
+
+const registry = registerCurrentNetworkAddresses(network, {
+  businessRegistryId: env.BUSINESS_REGISTRY_CONTRACT_ID,
+  financialLedgerId: env.FINANCIAL_LEDGER_CONTRACT_ID,
+  attestationRegistryId: env.ATTESTATION_REGISTRY_CONTRACT_ID,
+});
+
+const contracts = buildContractConfig(registry, network, {
+  businessRegistryId: env.BUSINESS_REGISTRY_CONTRACT_ID,
+  financialLedgerId: env.FINANCIAL_LEDGER_CONTRACT_ID,
+  attestationRegistryId: env.ATTESTATION_REGISTRY_CONTRACT_ID,
+});
+
+// contracts is now a validated ContractConfig — safe to pass to any SDK function.
+```
+
+`buildContractConfig` throws `ValidationError` immediately if an address is
+malformed or doesn't match the registry — e.g. the `FinancialLedger` address
+accidentally passed where `AttestationRegistry` was expected. Do this once at
+your app's composition root (e.g. `apps/web/lib/stellar/network.ts`) and pass
+the resulting `ContractConfig` through; don't construct one from raw strings
+inline — the type system will refuse it.
+
+### 2. Generated ABI types — catching upgrades at build time
+
+`packages/sdk/src/contracts/__generated__/` contains TypeScript interfaces
+generated directly from each contract's on-chain interface (via
+`stellar contract inspect`), not from the hand-written clients. They're the
+independent source of truth the hand-written clients are checked against.
+
+```sh
+# Regenerate after rebuilding contracts (requires herledger-contract WASM built):
+cd herledger-app
+pnpm --filter @herledger/sdk generate:abi
+
+# CI-style check — fails if committed types are stale, doesn't write:
+pnpm --filter @herledger/sdk generate:abi:check
+```
+
+CI runs `generate:abi:check` on every PR (job: `abi-check` in
+`.github/workflows/ci.yml`). If a contract's interface changed — a renamed
+method, a reordered parameter, a new required argument — the generated
+output will differ from what's committed and the build fails with an
+explicit diff, rather than the mismatch surfacing later as a runtime
+encoding error.
+
+**Handling a contract upgrade:**
+
+1. Rebuild the contract (`herledger-contract/scripts/build.sh`).
+2. Run `pnpm --filter @herledger/sdk generate:abi` and review the diff in
+   `__generated__/`.
+3. Cross-check the diff against the corresponding hand-written client in
+   `contracts/`. Update the `.call()` arguments, types, and any encode/decode
+   logic in `encoding.ts` to match.
+4. Update `CONTRACT_ADDRESSES` (via your env/config) if the deployment
+   address changed.
+5. Commit both the regenerated `__generated__/` files and the hand-written
+   client changes together — a PR that updates one without the other is
+   exactly the drift this workflow exists to prevent.
+
+This process itself surfaced two pre-existing bugs during development of
+this feature: `FinancialLedger.dispute_event` and
+`AttestationRegistry.create_attestation` were each missing a required
+`Address` argument in the hand-written client. Both are fixed as part of
+this same change.
+
+### 3. Testnet smoke tests
+
+`packages/sdk/src/contracts/__tests__/smoke.testnet.test.ts` calls one read
+method per contract against the real deployed testnet contracts, guarded by
+`TEST_AGAINST_TESTNET=true` so it never runs in normal `pnpm test`:
+
+```sh
+# Requires BUSINESS_REGISTRY_CONTRACT_ID, FINANCIAL_LEDGER_CONTRACT_ID,
+# ATTESTATION_REGISTRY_CONTRACT_ID set to real testnet contract IDs.
+pnpm --filter @herledger/sdk test:smoke
+```
+
+CI runs this nightly and on manual dispatch (job: `testnet-smoke`), using
+`TESTNET_BUSINESS_REGISTRY_CONTRACT_ID` / `TESTNET_FINANCIAL_LEDGER_CONTRACT_ID`
+/ `TESTNET_ATTESTATION_REGISTRY_CONTRACT_ID` repo secrets — configure these
+under **Settings → Secrets and variables → Actions**. These are read-only
+calls; no funded account or signing key is required.
+
+===
+
 ## SDK Reference
 
 `packages/sdk` is the single source of truth for all Stellar/Soroban client interactions.
 React components must not construct contract calls directly.
+
+### Constructing a ContractConfig
+
+Every SDK contract function takes a `ContractConfig`, whose fields are the
+branded `ContractAddress` type rather than raw `string` — see
+[Contract ABI Management](#contract-abi-management) for why. Build one once
+at startup:
+
+```typescript
+import { registerCurrentNetworkAddresses, buildContractConfig } from "@herledger/sdk";
+
+const network = env.STELLAR_NETWORK; // "testnet" | "mainnet"
+
+const registry = registerCurrentNetworkAddresses(network, {
+  businessRegistryId: env.BUSINESS_REGISTRY_CONTRACT_ID,
+  financialLedgerId: env.FINANCIAL_LEDGER_CONTRACT_ID,
+  attestationRegistryId: env.ATTESTATION_REGISTRY_CONTRACT_ID,
+});
+
+const contracts = buildContractConfig(registry, network, {
+  businessRegistryId: env.BUSINESS_REGISTRY_CONTRACT_ID,
+  financialLedgerId: env.FINANCIAL_LEDGER_CONTRACT_ID,
+  attestationRegistryId: env.ATTESTATION_REGISTRY_CONTRACT_ID,
+});
+```
+
+In practice, don't call this inline at every use site — both `apps/web/lib/stellar/network.ts` (`getContractConfig()`, browser-safe) and `indexer/src/config/index.ts` (`getContractConfig()`, server-side) already do this once and export the result. Import from there rather than duplicating the registry construction in a component or route handler.
+
 
 ### BusinessRegistry
 
@@ -532,7 +673,7 @@ const business = await getBusiness(businessId, stellarConfig, contractConfig);
 // Read by wallet address
 const business = await getBusinessByWallet(walletAddress, stellarConfig, contractConfig);
 
-// Register — requires Freighter to be connected, returns tx hash
+// Register â€” requires Freighter to be connected, returns tx hash
 const result = await registerBusiness(
   { businessId, owner, wallet, metadataHash, sourceAccount },
   stellarConfig,
@@ -572,7 +713,7 @@ import {
 ### Amount handling
 
 ```typescript
-// Amounts are always bigint — never Number
+// Amounts are always bigint â€” never Number
 const event: FinancialEvent = await getFinancialEvent(eventId, config, contracts);
 console.log(event.amount); // bigint, e.g. 100_000_000n (= 10 XLM in stroops)
 
@@ -621,17 +762,17 @@ On restart it resumes from `lastLedger`. On first run it starts from ledger 0
 ### Idempotency
 
 All database writes use `upsert` with the on-chain event ID as the unique key.
-Processing the same transaction twice is safe — the second pass is a no-op for
+Processing the same transaction twice is safe â€” the second pass is a no-op for
 blockchain-derived fields, and only updates mutable status fields.
 
 ### Payment classification rules
 
 | Rule | PaymentReceived | PaymentSent |
 |------|----------------|-------------|
-| Transaction succeeded | ✓ required | ✓ required |
-| Business wallet is recipient | ✓ | — |
-| Business wallet is sender | — | ✓ |
-| Asset is supported | ✓ required | ✓ required |
+| Transaction succeeded | âœ“ required | âœ“ required |
+| Business wallet is recipient | âœ“ | â€” |
+| Business wallet is sender | â€” | âœ“ |
+| Asset is supported | âœ“ required | âœ“ required |
 
 Failed transactions are **never** classified.
 Unsupported assets are **never** classified.
@@ -667,8 +808,8 @@ All responses follow:
 GET /businesses/:id/events?offset=0&limit=20
 ```
 
-- `offset`: integer ≥ 0, default 0
-- `limit`: integer 1–100, default 20
+- `offset`: integer â‰¥ 0, default 0
+- `limit`: integer 1â€“100, default 20
 - Response includes `pagination.count` for next-page detection
 
 ---
@@ -676,30 +817,30 @@ GET /businesses/:id/events?offset=0&limit=20
 ## Onboarding Flow
 
 ```
-1. Sign up / sign in (Better Auth — email + password)
-        ↓
+1. Sign up / sign in (Better Auth â€” email + password)
+        â†“
 2. Connect Stellar wallet (Freighter browser extension)
-        ↓
+        â†“
 3. Freighter confirms wallet ownership (no secret key transmitted)
-        ↓
+        â†“
 4. Enter business name
-        ↓
+        â†“
 5. App derives deterministic business ID from wallet + name + timestamp
-        ↓
+        â†“
 6. App hashes private metadata (name committed as hash only)
-        ↓
+        â†“
 7. App builds BusinessRegistry.register_business() transaction
-        ↓
+        â†“
 8. Freighter prompts user to sign
-        ↓
+        â†“
 9. App submits signed transaction to Stellar
-        ↓
+        â†“
 10. App polls for confirmation (up to 60 seconds)
-        ↓
-11. On-chain success → app saves BusinessProfile to database
-        ↓
+        â†“
+11. On-chain success â†’ app saves BusinessProfile to database
+        â†“
 12. Redirect to dashboard
-        ↓
+        â†“
 13. Indexer begins detecting activity for the registered wallet
 ```
 
@@ -742,18 +883,18 @@ HerLedger does **not** claim that every incoming payment is revenue.
 A business owner can challenge an incorrect HerLedger record:
 
 ```
-Dashboard → Activity → Select event → Challenge record
-        ↓
+Dashboard â†’ Activity â†’ Select event â†’ Challenge record
+        â†“
 Enter reason for dispute (kept off-chain; only hash committed)
-        ↓
+        â†“
 App hashes the reason text
-        ↓
+        â†“
 App builds FinancialLedger.dispute_event() transaction
-        ↓
+        â†“
 Freighter prompts owner to sign
-        ↓
+        â†“
 Transaction submitted and confirmed
-        ↓
+        â†“
 Event status changes to Disputed on-chain and in the index
 ```
 
@@ -764,7 +905,7 @@ Event status changes to Disputed on-chain and in the index
 - Directly mark the event Verified or Revoked
 
 Dispute changes HerLedger application state, **not** Stellar history.
-Revoked and disputed events remain visible in the UI — they are never hidden.
+Revoked and disputed events remain visible in the UI â€” they are never hidden.
 
 ---
 
@@ -772,7 +913,7 @@ Revoked and disputed events remain visible in the UI — they are never hidden.
 
 | Data | Storage | Visibility |
 |------|---------|------------|
-| Stellar transactions | Stellar blockchain | Public — anyone can query |
+| Stellar transactions | Stellar blockchain | Public â€” anyone can query |
 | Business ID | On-chain (hash) | Public |
 | Metadata hash | On-chain (hash only) | Public hash, private content |
 | Business name | Off-chain database | Private to the application |
@@ -798,9 +939,9 @@ Key properties:
 - **Server secrets never reach the browser.** `DATABASE_URL` and `BETTER_AUTH_SECRET` are never in `NEXT_PUBLIC_*`.
 - **Input validation.** All API inputs validated with Zod. No `as any` bypasses.
 - **Immutable blockchain records.** Stellar-derived fields cannot be changed by API requests.
-- **Auth ≠ wallet.** Signing into HerLedger and connecting a Stellar wallet are independent steps.
+- **Auth â‰  wallet.** Signing into HerLedger and connecting a Stellar wallet are independent steps.
 
-> ⚠️ **These contracts have not been audited.** Do not deploy with real financial data without a professional security review.
+> âš ï¸ **These contracts have not been audited.** Do not deploy with real financial data without a professional security review.
 
 ---
 

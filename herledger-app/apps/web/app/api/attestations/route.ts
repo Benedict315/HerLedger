@@ -37,11 +37,8 @@ export async function GET() {
   });
 
   const attestations = events
-    .flatMap((event: { attestations: unknown[] }) => event.attestations)
-    .sort(
-      (a: { ledgerSequence: number }, b: { ledgerSequence: number }) =>
-        b.ledgerSequence - a.ledgerSequence
-    );
+    .flatMap((event) => event.attestations)
+    .sort((a, b) => b.ledgerSequence - a.ledgerSequence);
 
   return NextResponse.json({ data: { attestations }, error: null });
 }
