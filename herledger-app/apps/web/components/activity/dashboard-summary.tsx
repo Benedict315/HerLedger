@@ -6,6 +6,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatAmount } from "@/lib/utils/format";
 import { getServerEnv } from "@herledger/config";
+import { useEventStream } from "@/hooks/use-event-stream";
 
 interface EventSummary {
   eventId: string;
@@ -20,21 +21,30 @@ export function DashboardSummary() {
   const [events, setEvents] = useState<EventSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { newEvents } = useEventStream();
+
+  const fetchSummary = async () => {
+    try {
+      const res = await fetch("/api/activity/recent");
+      if (!res.ok) throw new Error("Failed to fetch activity");
+      const json = (await res.json()) as { data: { events: EventSummary[] } | null; error: unknown };
+      setEvents(json.data?.events ?? []);
+    } catch {
+      setError("Could not load recent activity. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    void (async () => {
-      try {
-        const res = await fetch("/api/activity/recent");
-        if (!res.ok) throw new Error("Failed to fetch activity");
-        const json = (await res.json()) as { data: { events: EventSummary[] } | null; error: unknown };
-        setEvents(json.data?.events ?? []);
-      } catch {
-        setError("Could not load recent activity. Please try again.");
-      } finally {
-        setLoading(false);
-      }
-    })();
+    void fetchSummary();
   }, []);
+
+  useEffect(() => {
+    if (newEvents.length > 0) {
+      void fetchSummary();
+    }
+  }, [newEvents]);
 
   if (loading) return <LoadingSpinner label="Loading activity…" />;
   if (error) {
