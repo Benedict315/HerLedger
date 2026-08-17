@@ -8,6 +8,7 @@ export default defineConfig({
     typecheck: {
       enabled: true,
       include: ["**/*.type-test.ts"],
+      tsconfig: "./tsconfig.typecheck.json",
     },
   },
   resolve: {
