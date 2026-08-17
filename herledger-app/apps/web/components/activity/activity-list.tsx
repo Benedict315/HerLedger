@@ -5,23 +5,13 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatAmount } from "@/lib/utils/format";
-import Link from "next/link";
-
-interface FinancialEventRow {
-  id: string;
-  eventId: string;
-  eventType: string;
-  assetAddress: string;
-  amount: string;
-  status: string;
-  stellarReference: string;
-  ledgerSequence: number;
-}
+import { apiClient, ApiRequestError } from "@/lib/api/client";
+import type { FinancialEventDto } from "@/app/api/activity/recent/schema";
 
 const PAGE_SIZE = 20;
 
 export function ActivityList() {
-  const [events, setEvents] = useState<FinancialEventRow[]>([]);
+  const [events, setEvents] = useState<FinancialEventDto[]>([]);
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,20 +21,15 @@ export function ActivityList() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(
-        `/api/activity/recent?offset=${pageOffset}&limit=${PAGE_SIZE}`
-      );
-      if (!res.ok) throw new Error("Failed to load activity");
-      const json = (await res.json()) as {
-        data: { events: FinancialEventRow[]; pagination: { count: number } } | null;
-        error: unknown;
-      };
-      const data = json.data;
-      if (!data) throw new Error("No data returned");
+      const data = await apiClient.activity.recent({ offset: pageOffset, limit: PAGE_SIZE });
       setEvents(data.events);
       setHasMore(data.pagination.count === PAGE_SIZE);
-    } catch {
-      setError("Could not load activity. Please try again.");
+    } catch (err) {
+      if (err instanceof ApiRequestError && err.code === "UNAUTHORIZED") {
+        setError("Please sign in again to view your activity.");
+      } else {
+        setError("Could not load activity. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -94,9 +79,7 @@ export function ActivityList() {
                 {formatAmount(BigInt(event.amount))}
               </td>
               <td style={{ padding: "0.75rem" }}>
-                <StatusBadge
-                  status={event.status as "Pending" | "Verified" | "Disputed" | "Revoked"}
-                />
+                <StatusBadge status={event.status} />
               </td>
               <td style={{ padding: "0.75rem", color: "var(--muted)" }}>
                 {event.ledgerSequence}
@@ -112,7 +95,7 @@ export function ActivityList() {
                   whiteSpace: "nowrap",
                 }}
               >
-                <a
+                
                   href={`https://stellar.expert/explorer/testnet/tx/${event.stellarReference}`}
                   target="_blank"
                   rel="noopener noreferrer"
