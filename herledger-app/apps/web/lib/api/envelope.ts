@@ -1,16 +1,22 @@
 import { z } from "zod";
 
-// ---------------------------------------------------------------------------
-// Every HerLedger API route returns { data, error } where exactly one of the
-// two is non-null. This is the single source of truth for that envelope
-// shape — every route's schema.ts wraps its data schema with this.
-// ---------------------------------------------------------------------------
-
 export const ApiErrorSchema = z.object({
   code: z.string(),
   message: z.string(),
 });
 export type ApiErrorShape = z.infer<typeof ApiErrorSchema>;
+
+/**
+ * Structural shape every route's ResponseSchema must conform to.
+ *
+ * This is what lets TypeScript prove, for an arbitrary caller-supplied
+ * ResponseSchema, that `Extract<z.infer<ResponseSchema>, { error: null }>`
+ * actually has a `data` property. Constraining by plain `z.ZodTypeAny`
+ * (the most general Zod type) gives TS no such guarantee — it can't know
+ * every possible schema looks like an envelope — which is why the
+ * indexed-access types below only type-check once bounded by this instead.
+ */
+export type EnvelopeShape = { data: unknown; error: ApiErrorShape | null };
 
 export function createResponseSchema<DataSchema extends z.ZodTypeAny>(
   dataSchema: DataSchema
@@ -22,7 +28,7 @@ export function createResponseSchema<DataSchema extends z.ZodTypeAny>(
 }
 
 /** Extracts the success-branch `data` type from a route's ResponseSchema. */
-export type SuccessData<ResponseSchema extends z.ZodTypeAny> = Extract
+export type SuccessData<ResponseSchema extends z.ZodType<EnvelopeShape>> = Extract
   z.infer<ResponseSchema>,
   { error: null }
 >["data"];
