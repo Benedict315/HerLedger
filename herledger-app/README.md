@@ -255,6 +255,12 @@ cp .env.example apps/web/.env.local
 
 Open `apps/web/.env.local` and fill in all values. See [Environment Variables](#environment-variables) for details.
 
+To verify your configuration without starting the application, run:
+
+```sh
+pnpm env:validate
+```
+
 ### 4. Create the database
 
 ```sh

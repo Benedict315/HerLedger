@@ -13,10 +13,13 @@
     "test:e2e": "pnpm --filter web test:e2e",
     "db:generate": "prisma generate --schema prisma/schema.prisma",
     "db:migrate": "prisma migrate deploy --schema prisma/schema.prisma",
-    "db:migrate:dev": "prisma migrate dev --schema prisma/schema.prisma"
+    "db:migrate:dev": "prisma migrate dev --schema prisma/schema.prisma",
+    "env:validate": "pnpm --filter '@herledger/config' exec tsx --conditions react-server src/validate.ts"
   },
   "devDependencies": {
+    "dotenv": "^17.4.2",
     "prettier": "3.4.2",
+    "tsx": "4.19.2",
     "typescript": "7.0.2"
   },
   "engines": {

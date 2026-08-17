@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { PrismaClient } from "@prisma/client";
-import { getServerEnv } from "@herledger/config";
+import { getServerEnv } from "@herledger/config/server";
 
 // ---------------------------------------------------------------------------
 // Better Auth server instance
