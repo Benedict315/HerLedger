@@ -19,11 +19,15 @@
   "devDependencies": {
     "dotenv": "^17.4.2",
     "prettier": "3.4.2",
+    "prisma": "7.9.1",
     "tsx": "4.19.2",
     "typescript": "7.0.2"
   },
   "engines": {
     "node": ">=20.9.0",
     "pnpm": ">=9"
+  },
+  "dependencies": {
+    "@prisma/client": "7.9.1"
   }
 }

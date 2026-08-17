@@ -27,7 +27,7 @@ export const serverEnvSchema = z.object({
 });
 
 const withNextPublic = <T extends z.ZodRawShape>(shape: T) => {
-  const publicShape: Record<string, z.ZodTypeAny> = {};
+  const publicShape: any = {};
   for (const [key, schema] of Object.entries(shape)) {
     publicShape[`NEXT_PUBLIC_${key}`] = schema;
   }
