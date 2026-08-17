@@ -16,7 +16,9 @@
     "db:migrate:dev": "prisma migrate dev --schema prisma/schema.prisma"
   },
   "devDependencies": {
+    "@prisma/client": "^6.19.3",
     "prettier": "3.4.2",
+    "prisma": "^6.19.3",
     "typescript": "7.0.2"
   },
   "engines": {
