@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { isSupportedAsset } from "@herledger/sdk";
-import { getStellarNetworkConfig, getContractConfig } from "../../config/index.js";
+import { getStellarNetworkConfig, getContractConfig } from "@herledger/config";
 
 export async function supportedAssetsRoutes(app: FastifyInstance): Promise<void> {
   app.get("/", async (_req, reply) => {
