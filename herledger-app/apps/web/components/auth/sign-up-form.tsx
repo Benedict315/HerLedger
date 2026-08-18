@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signUp } from "@/lib/auth/client";
 import { FormField } from "@/components/ui/form-field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ErrorMessage } from "@/components/ui/error-message";
+import { runExclusive } from "@/lib/utils/submit-guard";
 
 export function SignUpForm() {
   const router = useRouter();
@@ -15,6 +16,11 @@ export function SignUpForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // See lib/utils/submit-guard.ts: setLoading() alone can't stop a
+  // duplicate request from two submits in the same tick, since the state
+  // update hasn't re-rendered (and disabled the button) yet.
+  const submittingRef = useRef(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -25,23 +31,25 @@ export function SignUpForm() {
       return;
     }
 
-    setLoading(true);
-    try {
-      const result = await signUp.email({ email, password, name });
-      if (result.error) {
-        setError(result.error.message ?? "Account creation failed.");
-      } else {
-        router.push("/dashboard/business");
+    await runExclusive(submittingRef, async () => {
+      setLoading(true);
+      try {
+        const result = await signUp.email({ email, password, name });
+        if (result.error) {
+          setError(result.error.message ?? "Account creation failed.");
+        } else {
+          router.push("/dashboard/business");
+        }
+      } catch {
+        setError("An unexpected error occurred. Please try again.");
+      } finally {
+        setLoading(false);
       }
-    } catch {
-      setError("An unexpected error occurred. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+    });
   }
 
   return (
-    <form onSubmit={(e) => void handleSubmit(e)} noValidate>
+    <form onSubmit={(e) => void handleSubmit(e)} noValidate aria-busy={loading}>
       {error && <ErrorMessage message={error} />}
 
       <FormField

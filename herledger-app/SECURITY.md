@@ -36,6 +36,35 @@ production for real financial data without a professional security review.
 
 - **No SQL injection**: All database access uses Prisma's parameterized queries.
 
+- **CSRF protection on auth endpoints**: Better Auth (1.6.x) has no `csrf`
+  config flag — its CSRF protection is the Origin/Referer + Fetch Metadata
+  check built into its origin-check middleware
+  (`formCsrfMiddleware`/`validateOrigin`), and it is applied to
+  `/api/auth/sign-in/email` and `/api/auth/sign-up/email` by default. It
+  rejects two attack shapes: a cross-site top-level form navigation (the
+  browser's own `Sec-Fetch-Site: cross-site` + `Sec-Fetch-Mode: navigate`
+  headers, which an attacker page cannot forge, trigger an immediate
+  reject) and any other cross-origin request whose `Origin`/`Referer`
+  doesn't match `trustedOrigins` (currently `[APP_URL]`).
+
+  One caveat we found and closed: Better Auth auto-disables this check
+  whenever `NODE_ENV === "test"` (a testing convenience) — which is
+  exactly what CI sets for the whole job. `apps/web/lib/auth/server.ts`
+  sets `advanced: { disableOriginCheck: false }` explicitly so a `test`
+  `NODE_ENV` can never silently turn the protection off, in CI or
+  otherwise. Covered by `apps/web/lib/auth/__tests__/server.csrf.test.ts`.
+
+- **User enumeration resistance on sign-in**: every credential-failure path
+  in Better Auth's `signInEmail` (unknown email, no credential account,
+  wrong password) already normalizes to the same message
+  ("Invalid email or password") server-side and performs a dummy password
+  hash on the "not found" path so response timing doesn't distinguish it
+  from a wrong-password attempt. `apps/web/lib/auth/messages.ts` adds a
+  defensive client-side normalization layer on top, so the sign-in form
+  never surfaces a different message verbatim even if a future plugin,
+  misconfiguration, or upstream change makes one path more specific than
+  another.
+
 ## Stellar transaction visibility
 
 Stellar transactions are publicly visible on the blockchain. HerLedger does
