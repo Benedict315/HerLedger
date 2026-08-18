@@ -16,6 +16,13 @@ export type {
   HexString32,
 } from "./types/index.js";
 
+// Attester registry
+export {
+  KNOWN_ATTESTERS,
+  resolveAttesterName,
+} from "./attester-registry.js";
+export type { AttesterRegistry, AttesterRegistryEntry } from "./attester-registry.js";
+
 // Errors
 export {
   WalletError,

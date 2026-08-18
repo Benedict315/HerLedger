@@ -7,7 +7,9 @@ import {
   type ActivityRecentData,
 } from "@/app/api/activity/recent/schema";
 import {
+  RequestSchema as AttestationsRequestSchema,
   ResponseSchema as AttestationsResponseSchema,
+  type AttestationsRequest,
   type AttestationsData,
 } from "@/app/api/attestations/schema";
 import {
@@ -77,8 +79,10 @@ export const apiClient = {
   },
 
   attestations: {
-    list: async (): Promise<AttestationsData> => {
-      return request("/api/attestations", AttestationsResponseSchema);
+    list: async (params: AttestationsRequest = {}): Promise<AttestationsData> => {
+      const normalized = AttestationsRequestSchema.parse(params);
+      const qs = toQueryString(normalized);
+      return request(`/api/attestations${qs}`, AttestationsResponseSchema);
     },
   },
 

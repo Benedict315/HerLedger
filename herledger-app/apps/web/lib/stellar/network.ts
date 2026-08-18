@@ -4,12 +4,28 @@ import {
   buildContractConfig,
   type ContractConfig,
   type NetworkId,
+  type StellarNetworkConfig,
 } from "@herledger/sdk";
 import { Networks } from "@stellar/stellar-sdk";
 
 export function getNetworkPassphrase(): string {
   const env = getPublicEnv();
   return env.NEXT_PUBLIC_STELLAR_NETWORK === "mainnet" ? Networks.PUBLIC : Networks.TESTNET;
+}
+
+/**
+ * Browser-safe `StellarNetworkConfig`, built from `NEXT_PUBLIC_*` env vars.
+ * `horizonUrl` is empty — it's only needed server-side (indexer), never for
+ * client-initiated writes, which only need `rpcUrl` for simulation/submit.
+ */
+export function getStellarConfig(): StellarNetworkConfig {
+  const env = getPublicEnv();
+  return {
+    network: env.NEXT_PUBLIC_STELLAR_NETWORK,
+    rpcUrl: env.NEXT_PUBLIC_STELLAR_RPC_URL,
+    horizonUrl: "",
+    networkPassphrase: getNetworkPassphrase(),
+  };
 }
 
 /**
