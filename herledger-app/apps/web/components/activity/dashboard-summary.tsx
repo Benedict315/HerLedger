@@ -7,33 +7,22 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { formatAmount } from "@/lib/utils/format";
 import { useEventStream } from "@/hooks/use-event-stream";
 
-interface EventSummary {
-  eventId: string;
-  eventType: string;
-  assetAddress: string;
-  amount: string;
-  status: string;
-  ledgerSequence: number;
-}
-
 export function DashboardSummary() {
-  const [events, setEvents] = useState<EventSummary[]>([]);
+  const [events, setEvents] = useState<FinancialEventDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { newEvents } = useEventStream();
 
-  const fetchSummary = async () => {
+  async function fetchSummary() {
     try {
-      const res = await fetch("/api/activity/recent");
-      if (!res.ok) throw new Error("Failed to fetch activity");
-      const json = (await res.json()) as { data: { events: EventSummary[] } | null; error: unknown };
-      setEvents(json.data?.events ?? []);
+      const data = await apiClient.activity.recent();
+      setEvents(data.events);
     } catch {
       setError("Could not load recent activity. Please try again.");
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   useEffect(() => {
     void fetchSummary();
@@ -91,7 +80,7 @@ export function DashboardSummary() {
               <span style={{ fontFamily: "monospace", fontSize: "0.9375rem" }}>
                 {formatAmount(BigInt(event.amount))}
               </span>
-              <StatusBadge status={event.status as "Pending" | "Verified" | "Disputed" | "Revoked"} />
+              <StatusBadge status={event.status} />
             </div>
           </li>
         ))}

@@ -1,14 +1,15 @@
-import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { auth } from "@/lib/auth/server";
 import { headers } from "next/headers";
+import { typedJson } from "@/lib/api/route-handler";
+import type { AttestationsResponse } from "./schema";
 
 const prisma = new PrismaClient();
 
 export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) {
-    return NextResponse.json(
+    return typedJson<AttestationsResponse>(
       { data: null, error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
       { status: 401 }
     );
@@ -19,13 +20,9 @@ export async function GET() {
     select: { businessId: true },
   });
   if (!profile) {
-    return NextResponse.json({ data: { attestations: [] }, error: null });
+    return typedJson<AttestationsResponse>({ data: { attestations: [] }, error: null });
   }
 
-  // Single round-trip: fetch this business's events together with their
-  // attestations via the FinancialEvent -> Attestation relation, instead of
-  // a separate findMany per event. Reduces this endpoint to 2 DB calls total
-  // (profile lookup + this query) regardless of event count.
   const events = await prisma.financialEvent.findMany({
     where: { businessId: profile.businessId },
     select: {
@@ -40,5 +37,5 @@ export async function GET() {
     .flatMap((event) => event.attestations)
     .sort((a, b) => b.ledgerSequence - a.ledgerSequence);
 
-  return NextResponse.json({ data: { attestations }, error: null });
+  return typedJson<AttestationsResponse>({ data: { attestations }, error: null });
 }
