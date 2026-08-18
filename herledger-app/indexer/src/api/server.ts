@@ -6,13 +6,12 @@ import { registerRoutes } from "./routes/index.js";
 // ---------------------------------------------------------------------------
 
 export function buildServer() {
+  const isProduction = process.env["NODE_ENV"] === "production";
+
   const app = Fastify({
     logger: {
-      level: process.env["NODE_ENV"] === "production" ? "warn" : "info",
-      transport:
-        process.env["NODE_ENV"] !== "production"
-          ? { target: "pino-pretty" }
-          : undefined,
+      level: isProduction ? "warn" : "info",
+      ...(!isProduction && { transport: { target: "pino-pretty" } }),
     },
   });
 

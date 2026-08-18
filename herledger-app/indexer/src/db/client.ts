@@ -1,3 +1,4 @@
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 
 // ---------------------------------------------------------------------------
@@ -28,20 +29,31 @@ function buildDatabaseUrl(): string {
   return url.toString();
 }
 
-let _prisma: PrismaClient | null = null;
+// A named factory (rather than inlining `new PrismaClient(...)` at the call
+// site) lets `_prisma`'s declared type keep the specific `log` array's
+// generic instantiation, which is what makes `$on("warn" | "error" |
+// "query", ...)` type-check below -- a bare `PrismaClient` annotation
+// erases it back to its default (`never` events).
+function createPrismaClient() {
+  const isDev = process.env["NODE_ENV"] === "development";
+
+  return new PrismaClient({
+    adapter: new PrismaPg(buildDatabaseUrl()),
+    log: [
+      ...(isDev ? [{ emit: "event", level: "query" } as const] : []),
+      { emit: "event", level: "warn" } as const,
+      { emit: "event", level: "error" } as const,
+    ],
+  });
+}
+
+let _prisma: ReturnType<typeof createPrismaClient> | null = null;
 
 export function getPrismaClient(): PrismaClient {
   if (!_prisma) {
     const isDev = process.env["NODE_ENV"] === "development";
 
-    _prisma = new PrismaClient({
-      datasourceUrl: buildDatabaseUrl(),
-      log: [
-        ...(isDev ? [{ emit: "event", level: "query" } as const] : []),
-        { emit: "event", level: "warn" },
-        { emit: "event", level: "error" },
-      ],
-    });
+    _prisma = createPrismaClient();
 
     _prisma.$on("warn", (e: { message: string }) => {
       console.warn({ event: "prisma-warn", message: e.message });

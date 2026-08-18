@@ -1,22 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { isValidAttestation, resolveAttesterName } from "@herledger/sdk";
+import { useEffect, useState } from "react";
+
+import type { AttestationDto } from "@/app/api/attestations/schema";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { getContractConfig, getStellarConfig } from "@/lib/stellar/network";
+import { apiClient, ApiRequestError } from "@/lib/api/client";
 import { hasStatusDiscrepancy } from "@/lib/attestations/reconcile";
-
-interface AttestationRow {
-  id: string;
-  attestationId: string;
-  eventId: string;
-  attesterAddress: string;
-  claimHash: string;
-  status: "Active" | "Revoked";
-  ledgerSequence: number;
-}
+import { getContractConfig, getStellarConfig } from "@/lib/stellar/network";
 
 // ---------------------------------------------------------------------------
 // On-chain re-validation trade-off: this checks `isValidAttestation` for
@@ -34,7 +27,7 @@ interface AttestationRow {
 //     would be worth revisiting — see PR description for more detail.
 // ---------------------------------------------------------------------------
 export function AttestationList() {
-  const [attestations, setAttestations] = useState<AttestationRow[]>([]);
+  const [attestations, setAttestations] = useState<AttestationDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [revalidating, setRevalidating] = useState<Set<string>>(new Set());
@@ -44,23 +37,23 @@ export function AttestationList() {
 
     async function loadAttestations() {
       try {
-        const res = await fetch("/api/attestations");
-        if (!res.ok) throw new Error();
-        const json = (await res.json()) as { data: { attestations: AttestationRow[] } | null };
+        const data = await apiClient.attestations.list();
         if (ignore) return;
-        const loaded = json.data?.attestations ?? [];
-        setAttestations(loaded);
-        setLoading(false);
-        void revalidateAll(loaded);
-      } catch {
-        if (!ignore) {
+        setAttestations(data.attestations);
+        void revalidateAll(data.attestations);
+      } catch (err) {
+        if (ignore) return;
+        if (err instanceof ApiRequestError && err.code === "UNAUTHORIZED") {
+          setError("Please sign in again to view attestations.");
+        } else {
           setError("Could not load attestations.");
-          setLoading(false);
         }
+      } finally {
+        if (!ignore) setLoading(false);
       }
     }
 
-    async function revalidateAll(rows: AttestationRow[]) {
+    async function revalidateAll(rows: AttestationDto[]) {
       const stellarConfig = getStellarConfig();
       const contractConfig = getContractConfig();
 
@@ -68,7 +61,11 @@ export function AttestationList() {
         rows.map(async (row) => {
           let onChainValid: boolean;
           try {
-            onChainValid = await isValidAttestation(row.attestationId, stellarConfig, contractConfig);
+            onChainValid = await isValidAttestation(
+              row.attestationId,
+              stellarConfig,
+              contractConfig
+            );
           } catch {
             // RPC failure here shouldn't break the page — the DB-indexed
             // status is still shown, just unconfirmed for this load.
@@ -88,7 +85,9 @@ export function AttestationList() {
             const newStatus = json.data?.attestation.status;
             if (ignore || !newStatus) return;
             setAttestations((prev) =>
-              prev.map((a) => (a.attestationId === row.attestationId ? { ...a, status: newStatus } : a))
+              prev.map((a) =>
+                a.attestationId === row.attestationId ? { ...a, status: newStatus } : a
+              )
             );
           } finally {
             if (!ignore) {
@@ -146,9 +145,7 @@ export function AttestationList() {
               marginBottom: "0.5rem",
             }}
           >
-            <span style={{ fontWeight: 500, fontSize: "0.9375rem" }}>
-              Attestation
-            </span>
+            <span style={{ fontWeight: 500, fontSize: "0.9375rem" }}>Attestation</span>
             <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
               {revalidating.has(att.attestationId) && (
                 <span style={{ fontSize: "0.75rem", color: "var(--muted)" }} role="status">

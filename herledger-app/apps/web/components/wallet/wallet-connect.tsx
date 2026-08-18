@@ -1,12 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import {
-  isFreighterAvailable,
-  connectWallet,
-  getConnectedAddress,
-  WalletError,
-} from "@herledger/sdk";
+import { connectWallet, getConnectedAddress, WalletError } from "@herledger/sdk";
+import { useState, useEffect, useRef } from "react";
+
 import { ErrorMessage } from "@/components/ui/error-message";
 
 interface WalletConnectProps {
@@ -19,16 +15,23 @@ export function WalletConnect({ onConnected }: WalletConnectProps) {
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
 
+  // Effect must run only once on mount; capture the latest `onConnected` via
+  // a ref instead of a dependency so it can't fire from a stale closure.
+  const onConnectedRef = useRef(onConnected);
+  useEffect(() => {
+    onConnectedRef.current = onConnected;
+  });
+
   useEffect(() => {
     void (async () => {
       const existing = await getConnectedAddress();
       if (existing) {
         setAddress(existing);
-        onConnected(existing);
+        onConnectedRef.current(existing);
       }
       setChecking(false);
     })();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleConnect() {
     setError(null);
@@ -125,11 +128,7 @@ export function WalletConnect({ onConnected }: WalletConnectProps) {
         }}
       >
         You need the{" "}
-        <a
-          href="https://freighter.app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
+        <a href="https://freighter.app" target="_blank" rel="noopener noreferrer">
           Freighter browser extension
         </a>{" "}
         to connect a Stellar wallet.

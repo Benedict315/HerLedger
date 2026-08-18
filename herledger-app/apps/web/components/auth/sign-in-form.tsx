@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { signIn } from "@/lib/auth/client";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+
+import { ErrorMessage } from "@/components/ui/error-message";
 import { FormField } from "@/components/ui/form-field";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { ErrorMessage } from "@/components/ui/error-message";
+import { signIn } from "@/lib/auth/client";
 
 export function SignInForm() {
   const router = useRouter();
@@ -66,8 +67,7 @@ export function SignInForm() {
           color: "var(--muted)",
         }}
       >
-        No account?{" "}
-        <Link href="/auth/sign-up">Create one</Link>
+        No account? <Link href="/auth/sign-up">Create one</Link>
       </p>
     </form>
   );

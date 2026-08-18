@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
 import { getAttestation } from "@herledger/sdk";
 import { auth } from "@/lib/auth/server";
 import { headers } from "next/headers";
 import { getServerStellarConfig, getServerContractConfig } from "@/lib/stellar/server-config";
+import { getPrismaClient } from "@/lib/db/client";
 
-const prisma = new PrismaClient();
+const prisma = getPrismaClient();
 
 /**
  * Re-fetch one attestation's on-chain state and reconcile the DB row.
