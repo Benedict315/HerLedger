@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatAmount } from "@/lib/utils/format";
+import { useEventStream } from "@/hooks/use-event-stream";
 import Link from "next/link";
 
 interface FinancialEventRow {
@@ -22,6 +23,7 @@ const PAGE_SIZE = 20;
 
 export function ActivityList() {
   const [events, setEvents] = useState<FinancialEventRow[]>([]);
+  const { newEvents } = useEventStream();
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +55,20 @@ export function ActivityList() {
   useEffect(() => {
     void fetchPage(offset);
   }, [offset]);
+
+  useEffect(() => {
+    if (newEvents.length > 0 && offset === 0) {
+      setEvents((prev) => {
+        const merged = [...newEvents, ...prev];
+        const seen = new Set();
+        return merged.filter((e) => {
+          if (seen.has(e.eventId)) return false;
+          seen.add(e.eventId);
+          return true;
+        }).slice(0, PAGE_SIZE); // Keep it strictly PAGE_SIZE on first page
+      });
+    }
+  }, [newEvents, offset]);
 
   if (loading) return <LoadingSpinner label="Loading activity…" />;
   if (error) {

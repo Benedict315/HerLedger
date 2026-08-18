@@ -1,5 +1,5 @@
 // HerLedger application database schema
-// The database is an indexed application layer Ã¢â‚¬â€ NOT the source of truth for on-chain data.
+// The database is an indexed application layer ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â NOT the source of truth for on-chain data.
 // Blockchain-derived fields are immutable after indexing.
 
 generator client {
@@ -8,11 +8,10 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // ---------------------------------------------------------------------------
-// Better Auth Ã¢â‚¬â€ user and session models
+// Better Auth ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â user and session models
 // ---------------------------------------------------------------------------
 
 model User {
@@ -27,6 +26,7 @@ model User {
   sessions      Session[]
   accounts      Account[]
   businessProfile BusinessProfile?
+  disputes      Dispute[]
 
   @@map("users")
 }
@@ -116,7 +116,7 @@ model FinancialEvent {
   eventType        EventType
   /// Stellar asset contract address
   assetAddress     String
-  /// Stored as string to preserve i128 precision Ã¢â‚¬â€ never cast to Number
+  /// Stored as string to preserve i128 precision ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â never cast to Number
   amount           String
   /// Stellar transaction hash (hex-encoded BytesN<32>)
   stellarReference String
@@ -129,6 +129,7 @@ model FinancialEvent {
 
   business         BusinessProfile @relation(fields: [businessId], references: [businessId], onDelete: Restrict)
   attestations     Attestation[]
+  disputes         Dispute[]
 
   @@index([businessId])
   @@index([ledgerSequence])
@@ -156,6 +157,54 @@ model Attestation {
   @@map("attestations")
 }
 
+// Off-chain record of a dispute raised against a FinancialEvent.
+//
+// The on-chain `dispute_event` call only ever receives a hash of the
+// dispute reason (see `dispute_event(event_id, business_owner, reason_hash)`
+// in the FinancialLedger contract) -- the plaintext reason itself has no
+// on-chain home. This model is that off-chain home: it lets the business
+// owner (and, in future, auditors) read back *why* a dispute was raised,
+// and lets them reproduce `reasonHash` to verify it against the on-chain
+// value on Stellar Expert.
+//
+// `reasonPlaintext` holds the AES-256-GCM ciphertext envelope, never the
+// raw plaintext -- see apps/web/lib/crypto/dispute-encryption.ts. The field
+// keeps the name "reasonPlaintext" (rather than e.g. "reasonCiphertext") to
+// make the encrypt-at-write / decrypt-at-read contract explicit at the call
+// site: every read of this column MUST go through decryptDisputeReason,
+// and every write MUST go through encryptDisputeReason.
+model Dispute {
+  id               String        @id @default(cuid())
+  /// On-chain event ID (hex-encoded BytesN<32>) this dispute was raised against
+  eventId          String
+  /// The HerLedger user (business owner) who raised the dispute
+  userId           String
+  /// AES-256-GCM ciphertext envelope of the dispute reason: "iv:authTag:ciphertext" (base64 segments).
+  /// Never plaintext at rest -- see apps/web/lib/crypto/dispute-encryption.ts.
+  reasonPlaintext  String
+  /// Hash of the plaintext reason, matching the reason_hash submitted on-chain via dispute_event
+  reasonHash       String
+  status           DisputeStatus @default(Submitted)
+  submittedAt      DateTime      @default(now()) @db.Timestamptz
+  resolvedAt       DateTime?     @db.Timestamptz
+  /// Stellar transaction hash of the on-chain resolve_dispute/revoke_event call, once known.
+  /// Nothing in this PR populates it automatically (the indexer does not yet
+  /// listen for dispute resolution contract events -- a pre-existing gap,
+  /// see PR description); it is here so the "View resolution" UI action and
+  /// a future indexer sync job have somewhere to read/write it.
+  resolutionTxHash String?
+  createdAt        DateTime      @default(now()) @db.Timestamptz
+  updatedAt        DateTime      @updatedAt @db.Timestamptz
+
+  event            FinancialEvent @relation(fields: [eventId], references: [eventId], onDelete: Restrict)
+  user             User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([eventId])
+  @@index([userId])
+  @@index([status])
+  @@map("disputes")
+}
+
 model StellarTransaction {
   /// Stellar transaction hash (hex string)
   hash           String   @id
@@ -181,7 +230,7 @@ model IndexerCheckpoint {
 }
 
 // ---------------------------------------------------------------------------
-// Enums Ã¢â‚¬â€ mirror on-chain definitions
+// Enums ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â mirror on-chain definitions
 // ---------------------------------------------------------------------------
 
 enum EventType {
@@ -203,6 +252,7 @@ enum AttestationStatus {
   Revoked
 }
 
+<<<<<<< HEAD
 
 /// Dead-letter table for events the indexer failed to process. Holds the
 /// raw XDR so a fixed bug can be replayed via POST /v1/admin/replay/:errorId
@@ -229,4 +279,15 @@ model IndexerError {
   @@index([stage])
   @@index([resolvedAt])
   @@map("indexer_errors")
+=======
+// Off-chain dispute lifecycle. Coarser-grained on-chain state (EventStatus)
+// only distinguishes Disputed / Verified / Revoked; this enum adds the
+// Submitted -> Investigating refinement app-side. See
+// apps/web/lib/disputes/status.ts for how the two are reconciled.
+enum DisputeStatus {
+  Submitted
+  Investigating
+  Resolved
+  Revoked
+>>>>>>> upstream/main
 }
