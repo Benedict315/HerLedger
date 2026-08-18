@@ -31,9 +31,7 @@ export async function findAllActiveBusinessWallets(
       select: { id: true, businessId: true, walletAddress: true },
       orderBy: { id: "asc" },
       take: pageSize + 1,
-      ...(options?.cursor
-        ? { cursor: { id: options.cursor }, skip: 1 }
-        : {}),
+      ...(options?.cursor ? { cursor: { id: options.cursor }, skip: 1 } : {}),
     });
 
     const hasMore = rows.length > pageSize;
@@ -46,34 +44,22 @@ export async function findAllActiveBusinessWallets(
   }
 }
 
-export async function findBusinessByWallet(
-  prisma: PrismaClient,
-  walletAddress: string
-) {
+export async function findBusinessByWallet(prisma: PrismaClient, walletAddress: string) {
   try {
     return await prisma.businessProfile.findUnique({
       where: { walletAddress },
     });
   } catch (cause) {
-    throw new DatabaseError(
-      `Failed to find business by wallet ${walletAddress}`,
-      cause
-    );
+    throw new DatabaseError(`Failed to find business by wallet ${walletAddress}`, cause);
   }
 }
 
-export async function findBusinessById(
-  prisma: PrismaClient,
-  businessId: string
-) {
+export async function findBusinessById(prisma: PrismaClient, businessId: string) {
   try {
     return await prisma.businessProfile.findUnique({
       where: { businessId },
     });
   } catch (cause) {
-    throw new DatabaseError(
-      `Failed to find business by id ${businessId}`,
-      cause
-    );
+    throw new DatabaseError(`Failed to find business by id ${businessId}`, cause);
   }
 }

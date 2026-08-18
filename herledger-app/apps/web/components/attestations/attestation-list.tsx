@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+
+import type { AttestationDto } from "@/app/api/attestations/schema";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { apiClient, ApiRequestError } from "@/lib/api/client";
-import type { AttestationDto } from "@/app/api/attestations/schema";
 
 export function AttestationList() {
   const [attestations, setAttestations] = useState<AttestationDto[]>([]);

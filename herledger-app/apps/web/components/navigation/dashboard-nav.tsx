@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { signOut } from "@/lib/auth/client";
+import { useEffect, useState } from "react";
+
 import { useEventStream } from "@/hooks/use-event-stream";
+import { signOut } from "@/lib/auth/client";
 import { formatAmount } from "@/lib/utils/format";
 
 const NAV_ITEMS = [
@@ -42,10 +43,18 @@ export function DashboardNav() {
         flexDirection: "column",
         gap: "0.25rem",
         flexShrink: 0,
-        position: "relative"
+        position: "relative",
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", position: "relative" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "1rem",
+          position: "relative",
+        }}
+      >
         <span
           style={{
             fontWeight: 700,
@@ -56,45 +65,100 @@ export function DashboardNav() {
           HerLedger
         </span>
 
-        <button 
+        <button
           onClick={() => setShowDropdown(!showDropdown)}
-          style={{ 
-            background: "none", border: "none", cursor: "pointer", position: "relative", padding: "0.25rem" 
+          style={{
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            position: "relative",
+            padding: "0.25rem",
           }}
           aria-label="Notifications"
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
             <path d="M13.73 21a2 2 0 0 1-3.46 0" />
           </svg>
           {unreadCount > 0 && (
-            <span style={{
-              position: "absolute", top: 0, right: 0, background: "var(--danger, red)", color: "white",
-              borderRadius: "50%", width: "16px", height: "16px", fontSize: "10px",
-              display: "flex", alignItems: "center", justifyContent: "center"
-            }}>
+            <span
+              style={{
+                position: "absolute",
+                top: 0,
+                right: 0,
+                background: "var(--danger, red)",
+                color: "white",
+                borderRadius: "50%",
+                width: "16px",
+                height: "16px",
+                fontSize: "10px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
               {unreadCount}
             </span>
           )}
         </button>
 
         {showDropdown && (
-          <div style={{
-            position: "absolute", top: "100%", right: 0, width: "250px", background: "var(--background, white)",
-            border: "1px solid var(--border)", borderRadius: "var(--radius)", zIndex: 50,
-            boxShadow: "0 4px 6px rgba(0,0,0,0.1)", maxHeight: "300px", overflowY: "auto"
-          }}>
-            <div style={{ padding: "0.5rem 0.75rem", borderBottom: "1px solid var(--border)", fontWeight: 600, fontSize: "0.875rem" }}>
+          <div
+            style={{
+              position: "absolute",
+              top: "100%",
+              right: 0,
+              width: "250px",
+              background: "var(--background, white)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius)",
+              zIndex: 50,
+              boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+              maxHeight: "300px",
+              overflowY: "auto",
+            }}
+          >
+            <div
+              style={{
+                padding: "0.5rem 0.75rem",
+                borderBottom: "1px solid var(--border)",
+                fontWeight: 600,
+                fontSize: "0.875rem",
+              }}
+            >
               Recent Notifications
             </div>
             {newEvents.length === 0 ? (
-              <div style={{ padding: "1rem", textAlign: "center", fontSize: "0.875rem", color: "var(--muted)" }}>
+              <div
+                style={{
+                  padding: "1rem",
+                  textAlign: "center",
+                  fontSize: "0.875rem",
+                  color: "var(--muted)",
+                }}
+              >
                 No new notifications
               </div>
             ) : (
               <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-                {newEvents.slice(0, 5).map(event => (
-                  <li key={event.eventId} style={{ padding: "0.75rem", borderBottom: "1px solid var(--border)", fontSize: "0.8125rem" }}>
+                {newEvents.slice(0, 5).map((event) => (
+                  <li
+                    key={event.eventId}
+                    style={{
+                      padding: "0.75rem",
+                      borderBottom: "1px solid var(--border)",
+                      fontSize: "0.8125rem",
+                    }}
+                  >
                     <div style={{ fontWeight: 500 }}>{event.eventType}</div>
                     <div style={{ fontFamily: "monospace", marginTop: "0.25rem" }}>
                       {formatAmount(BigInt(event.amount))}
@@ -110,9 +174,7 @@ export function DashboardNav() {
       <ul style={{ listStyle: "none", padding: 0, margin: 0, flex: 1 }}>
         {NAV_ITEMS.map(({ href, label }) => {
           const isActive =
-            href === "/dashboard"
-              ? pathname === "/dashboard"
-              : pathname.startsWith(href);
+            href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
           return (
             <li key={href}>
               <Link

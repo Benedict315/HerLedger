@@ -1,12 +1,13 @@
+import { getServerEnv } from "@herledger/config";
+import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { PrismaClient } from "@prisma/client";
-import { auth } from "@/lib/auth/server";
-import { headers } from "next/headers";
-import { getServerEnv } from "@herledger/config";
-import { encryptDisputeReason } from "@/lib/crypto/dispute-encryption";
 
-const prisma = new PrismaClient();
+import { auth } from "@/lib/auth/server";
+import { encryptDisputeReason } from "@/lib/crypto/dispute-encryption";
+import { getPrismaClient } from "@/lib/db/client";
+
+const prisma = getPrismaClient();
 
 // `reasonHash` is a 32-byte hex digest (64 hex chars), matching the
 // `reason_hash: BytesN<32>` argument submitted on-chain via dispute_event

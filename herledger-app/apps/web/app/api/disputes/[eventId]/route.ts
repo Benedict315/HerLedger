@@ -1,12 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-import { auth } from "@/lib/auth/server";
-import { headers } from "next/headers";
 import { getServerEnv } from "@herledger/config";
+import { headers } from "next/headers";
+import { NextRequest, NextResponse } from "next/server";
+
+import { auth } from "@/lib/auth/server";
 import { decryptDisputeReason, DisputeDecryptionError } from "@/lib/crypto/dispute-encryption";
+import { getPrismaClient } from "@/lib/db/client";
 import { deriveDisputeLifecycleStatus } from "@/lib/disputes/status";
 
-const prisma = new PrismaClient();
+const prisma = getPrismaClient();
 
 interface RouteContext {
   params: Promise<{ eventId: string }>;

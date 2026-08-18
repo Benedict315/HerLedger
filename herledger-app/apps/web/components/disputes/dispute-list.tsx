@@ -1,11 +1,17 @@
 "use client";
 
+import { getPublicEnv } from "@herledger/config";
 import { useEffect, useState } from "react";
+
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import {
+  DISPUTE_STATUS_LABELS,
+  isDisputeTerminal,
+  type DisputeStatus,
+} from "@/lib/disputes/status";
+
 import { DisputeForm } from "./dispute-form";
-import { DISPUTE_STATUS_LABELS, isDisputeTerminal, type DisputeStatus } from "@/lib/disputes/status";
-import { getPublicEnv } from "@herledger/config";
 
 interface DisputedEvent {
   id: string;
@@ -38,7 +44,11 @@ export function DisputeList() {
         const json = (await res.json()) as { data: { events: DisputedEvent[] } | null };
         const all = json.data?.events ?? [];
         // Show events eligible for dispute (Pending or Verified)
-        setEvents(all.filter((e) => e.status === "Pending" || e.status === "Verified" || e.status === "Disputed"));
+        setEvents(
+          all.filter(
+            (e) => e.status === "Pending" || e.status === "Verified" || e.status === "Disputed"
+          )
+        );
       } catch {
         // silently degrade
       } finally {

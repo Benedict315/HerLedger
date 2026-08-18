@@ -1,17 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import Fastify from "fastify";
 
-const {
-  mockFindDeadLetter,
-  mockMarkResolved,
-  mockIncrementRetry,
-  mockProcessTransaction,
-} = vi.hoisted(() => ({
-  mockFindDeadLetter: vi.fn(),
-  mockMarkResolved: vi.fn(),
-  mockIncrementRetry: vi.fn(),
-  mockProcessTransaction: vi.fn(),
-}));
+const { mockFindDeadLetter, mockMarkResolved, mockIncrementRetry, mockProcessTransaction } =
+  vi.hoisted(() => ({
+    mockFindDeadLetter: vi.fn(),
+    mockMarkResolved: vi.fn(),
+    mockIncrementRetry: vi.fn(),
+    mockProcessTransaction: vi.fn(),
+  }));
 
 vi.mock("../../../db/client.js", () => ({
   getPrismaClient: () => ({}),
@@ -148,11 +144,7 @@ describe("POST /replay/:errorId", () => {
     });
 
     expect(res.statusCode).toBe(500);
-    expect(mockIncrementRetry).toHaveBeenCalledWith(
-      expect.anything(),
-      "err-1",
-      "still broken"
-    );
+    expect(mockIncrementRetry).toHaveBeenCalledWith(expect.anything(), "err-1", "still broken");
   });
 
   it("returns 409 once retryCount has hit the max", async () => {

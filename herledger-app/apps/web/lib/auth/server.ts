@@ -1,19 +1,18 @@
+import { getServerEnv } from "@herledger/config";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { PrismaClient } from "@prisma/client";
-import { getServerEnv } from "@herledger/config";
+
+import { getPrismaClient } from "@/lib/db/client";
 
 // ---------------------------------------------------------------------------
 // Better Auth server instance
 // Application auth is separate from Stellar wallet connection.
 // ---------------------------------------------------------------------------
 
-const prisma = new PrismaClient();
-
 const env = getServerEnv();
 
 export const auth = betterAuth({
-  database: prismaAdapter(prisma, {
+  database: prismaAdapter(getPrismaClient(), {
     provider: "postgresql",
   }),
   secret: env.BETTER_AUTH_SECRET,

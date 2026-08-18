@@ -1,6 +1,5 @@
 import type { z } from "zod";
-import { ApiRequestError, ApiValidationError } from "./errors";
-import type { EnvelopeShape } from "./envelope";
+
 
 import {
   RequestSchema as ActivityRecentRequestSchema,
@@ -8,29 +7,28 @@ import {
   type ActivityRecentRequest,
   type ActivityRecentData,
 } from "@/app/api/activity/recent/schema";
-
 import {
   ResponseSchema as AttestationsResponseSchema,
   type AttestationsData,
 } from "@/app/api/attestations/schema";
-
 import {
   RequestSchema as BusinessRegisterRequestSchema,
   ResponseSchema as BusinessRegisterResponseSchema,
   type BusinessRegisterRequest,
   type BusinessRegisterData,
 } from "@/app/api/business/register/schema";
+import { ResponseSchema as HealthResponseSchema, type HealthData } from "@/app/api/health/schema";
 
-import {
-  ResponseSchema as HealthResponseSchema,
-  type HealthData,
-} from "@/app/api/health/schema";
+import type { EnvelopeShape } from "./envelope";
+import { ApiRequestError, ApiValidationError } from "./errors";
 
 function toQueryString(params: Record<string, unknown>): string {
   const usp = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined) continue;
-    usp.set(key, String(value));
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+      usp.set(key, String(value));
+    }
   }
   const qs = usp.toString();
   return qs ? `?${qs}` : "";
@@ -67,12 +65,12 @@ async function request<ResponseSchema extends z.ZodType<EnvelopeShape>>(
     throw new ApiRequestError(envelope.error.code, envelope.error.message, res.status);
   }
 
-  return envelope.data as Extract<z.infer<ResponseSchema>, { error: null }>["data"];
+  return envelope.data;
 }
 
 export const apiClient = {
   activity: {
-    async recent(params: ActivityRecentRequest = {}): Promise<ActivityRecentData> {
+    recent: async (params: ActivityRecentRequest = {}): Promise<ActivityRecentData> => {
       const normalized = ActivityRecentRequestSchema.parse(params);
       const qs = toQueryString(normalized);
       return request(`/api/activity/recent${qs}`, ActivityRecentResponseSchema);
@@ -80,13 +78,13 @@ export const apiClient = {
   },
 
   attestations: {
-    async list(): Promise<AttestationsData> {
+    list: async (): Promise<AttestationsData> => {
       return request("/api/attestations", AttestationsResponseSchema);
     },
   },
 
   business: {
-    async register(body: BusinessRegisterRequest): Promise<BusinessRegisterData> {
+    register: async (body: BusinessRegisterRequest): Promise<BusinessRegisterData> => {
       const normalized = BusinessRegisterRequestSchema.parse(body);
       return request("/api/business/register", BusinessRegisterResponseSchema, {
         method: "POST",
@@ -97,7 +95,7 @@ export const apiClient = {
   },
 
   health: {
-    async check(): Promise<HealthData> {
+    check: async (): Promise<HealthData> => {
       return request("/api/health", HealthResponseSchema);
     },
   },

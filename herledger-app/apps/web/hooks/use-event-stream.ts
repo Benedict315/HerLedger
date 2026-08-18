@@ -13,8 +13,21 @@ export interface FinancialEventSummary {
   ledgerSequence: number;
 }
 
+interface EventStreamState {
+  newEvents: FinancialEventSummary[];
+  isConnected: boolean;
+  error: Error | null;
+}
+
+type Subscriber = (state: EventStreamState) => void;
+
+interface BroadcastPayload {
+  type: "new_events";
+  events: unknown;
+}
+
 let sharedEventSource: EventSource | null = null;
-let subscribers: Set<Function> = new Set();
+const subscribers: Set<Subscriber> = new Set();
 let globalNewEvents: FinancialEventSummary[] = [];
 let isConnected = false;
 let globalError: Error | null = null;
@@ -24,37 +37,43 @@ let lockAbortController: AbortController | null = null;
 let isInitializing = false;
 
 function notifySubscribers() {
+  const state: EventStreamState = {
+    newEvents: [...globalNewEvents],
+    isConnected,
+    error: globalError,
+  };
   for (const sub of subscribers) {
-    sub({ newEvents: [...globalNewEvents], isConnected, error: globalError });
+    sub(state);
   }
 }
 
-function handleEvents(data: any[]) {
-  if (Array.isArray(data) && data.length > 0) {
-    const newUnique = data.filter(
-      (d) => !globalNewEvents.some((p) => p.eventId === d.eventId)
-    );
-    if (newUnique.length > 0) {
-      globalNewEvents = [...newUnique, ...globalNewEvents];
-      notifySubscribers();
-    }
+function handleEvents(data: unknown) {
+  if (!Array.isArray(data) || data.length === 0) return;
+  // Trusted cast: the SSE payload's shape is owned by our own API route.
+  const incoming = data as unknown as FinancialEventSummary[];
+  const newUnique = incoming.filter(
+    (d) => !globalNewEvents.some((p) => p.eventId === d.eventId)
+  );
+  if (newUnique.length > 0) {
+    globalNewEvents = [...newUnique, ...globalNewEvents];
+    notifySubscribers();
   }
 }
 
 function connectEventSource() {
   if (sharedEventSource) return;
-  
+
   sharedEventSource = new EventSource("/api/events/stream");
-  
+
   sharedEventSource.onopen = () => {
     isConnected = true;
     globalError = null;
     notifySubscribers();
   };
 
-  sharedEventSource.onmessage = (event) => {
+  sharedEventSource.onmessage = (event: MessageEvent<string>) => {
     try {
-      const data = JSON.parse(event.data);
+      const data: unknown = JSON.parse(event.data);
       handleEvents(data);
       if (channel && isLeader) {
         channel.postMessage({ type: "new_events", events: data });
@@ -69,7 +88,7 @@ function connectEventSource() {
     sharedEventSource?.close();
     sharedEventSource = null;
     notifySubscribers();
-    
+
     // Attempt reconnect
     setTimeout(() => {
       if (isLeader) connectEventSource();
@@ -81,21 +100,20 @@ function initSSE() {
   if (typeof window === "undefined" || isInitializing) return;
   isInitializing = true;
 
-  if (!channel && 'BroadcastChannel' in window) {
+  if (!channel && "BroadcastChannel" in window) {
     channel = new BroadcastChannel("herledger-events");
-    channel.onmessage = (msg) => {
-      if (msg.data && msg.data.type === "new_events") {
-        handleEvents(msg.data.events);
+    channel.onmessage = (msg: MessageEvent<unknown>) => {
+      const payload = msg.data as BroadcastPayload | undefined;
+      if (payload?.type === "new_events") {
+        handleEvents(payload.events);
       }
     };
   }
 
-  if ('locks' in navigator) {
+  if ("locks" in navigator) {
     lockAbortController = new AbortController();
-    navigator.locks.request(
-      "herledger-sse-leader",
-      { signal: lockAbortController.signal },
-      () => {
+    navigator.locks
+      .request("herledger-sse-leader", { signal: lockAbortController.signal }, () => {
         isLeader = true;
         connectEventSource();
         // Hold lock until aborted
@@ -104,12 +122,13 @@ function initSSE() {
             lockAbortController.signal.addEventListener("abort", () => resolve());
           }
         });
-      }
-    ).catch((e) => {
-      if (e.name !== 'AbortError') {
-        connectEventSource();
-      }
-    });
+      })
+      .catch((e: unknown) => {
+        const name = e instanceof Error ? e.name : undefined;
+        if (name !== "AbortError") {
+          connectEventSource();
+        }
+      });
   } else {
     // Fallback if Web Locks API not supported
     isLeader = true;
@@ -118,10 +137,10 @@ function initSSE() {
 }
 
 export function useEventStream() {
-  const [state, setState] = useState({
+  const [state, setState] = useState<EventStreamState>({
     newEvents: globalNewEvents,
     isConnected,
-    error: globalError
+    error: globalError,
   });
 
   useEffect(() => {
@@ -130,7 +149,7 @@ export function useEventStream() {
       if (subscribers.size === 1) {
         initSSE();
       }
-      
+
       return () => {
         subscribers.delete(setState);
         if (subscribers.size === 0) {

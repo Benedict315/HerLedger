@@ -12,7 +12,7 @@ import type { ParsedPayment } from "../types/index.js";
  */
 export function parsePaymentsFromTransaction(
   tx: Horizon.ServerApi.TransactionRecord,
-  supportedAssets: Set<string>
+  _supportedAssets: Set<string>
 ): ParsedPayment[] {
   // Never classify failed transactions
   if (!tx.successful) return [];
