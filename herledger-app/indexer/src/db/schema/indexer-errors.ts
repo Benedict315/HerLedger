@@ -22,7 +22,7 @@ export async function writeDeadLetter(
         rawXdr: input.rawXdr,
         stage: input.stage,
         message: input.message,
-        context: input.context ?? undefined,
+        context: (input.context ?? undefined) as never,
       },
       select: { errorId: true },
     });

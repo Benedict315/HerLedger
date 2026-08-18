@@ -1,5 +1,5 @@
 // HerLedger application database schema
-// The database is an indexed application layer ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â NOT the source of truth for on-chain data.
+// The database is an indexed application layer ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â NOT the source of truth for on-chain data.
 // Blockchain-derived fields are immutable after indexing.
 
 generator client {
@@ -11,7 +11,7 @@ datasource db {
 }
 
 // ---------------------------------------------------------------------------
-// Better Auth ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â user and session models
+// Better Auth ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â user and session models
 // ---------------------------------------------------------------------------
 
 model User {
@@ -116,7 +116,7 @@ model FinancialEvent {
   eventType        EventType
   /// Stellar asset contract address
   assetAddress     String
-  /// Stored as string to preserve i128 precision ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â never cast to Number
+  /// Stored as string to preserve i128 precision ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â never cast to Number
   amount           String
   /// Stellar transaction hash (hex-encoded BytesN<32>)
   stellarReference String
@@ -230,7 +230,7 @@ model IndexerCheckpoint {
 }
 
 // ---------------------------------------------------------------------------
-// Enums ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â mirror on-chain definitions
+// Enums ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â mirror on-chain definitions
 // ---------------------------------------------------------------------------
 
 enum EventType {
@@ -252,7 +252,6 @@ enum AttestationStatus {
   Revoked
 }
 
-<<<<<<< HEAD
 
 /// Dead-letter table for events the indexer failed to process. Holds the
 /// raw XDR so a fixed bug can be replayed via POST /v1/admin/replay/:errorId
@@ -279,7 +278,8 @@ model IndexerError {
   @@index([stage])
   @@index([resolvedAt])
   @@map("indexer_errors")
-=======
+}
+
 // Off-chain dispute lifecycle. Coarser-grained on-chain state (EventStatus)
 // only distinguishes Disputed / Verified / Revoked; this enum adds the
 // Submitted -> Investigating refinement app-side. See
@@ -289,5 +289,4 @@ enum DisputeStatus {
   Investigating
   Resolved
   Revoked
->>>>>>> upstream/main
 }
