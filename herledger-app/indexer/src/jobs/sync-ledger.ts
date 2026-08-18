@@ -4,10 +4,17 @@ import { findAllActiveBusinessWallets } from "../db/schema/businesses.js";
 import { writeDeadLetter } from "../db/schema/indexer-errors.js";
 import { processTransactionForWallet } from "./process-transaction.js";
 import { fetchTransactionsForAccount, fetchLatestLedger } from "../stellar/rpc.js";
-import { parseAmount } from "../stellar/transactions.js";
 import { isSuccessfulTransaction, getTransactionLedger } from "../stellar/verification.js";
-import { getStellarNetworkConfig, getContractConfig as getRawContractConfig, validateNetworkConsistency } from "@herledger/config";
-import { registerCurrentNetworkAddresses, buildContractConfig, type ContractConfig } from "@herledger/sdk";
+import {
+  getStellarNetworkConfig,
+  getContractConfig as getRawContractConfig,
+  validateNetworkConsistency,
+} from "@herledger/config";
+import {
+  registerCurrentNetworkAddresses,
+  buildContractConfig,
+  type ContractConfig,
+} from "@herledger/sdk";
 import {
   resetCycleMetrics,
   recordIndexed,
@@ -80,7 +87,7 @@ async function syncCycle(
   let walletCursor: string | undefined;
   while (true) {
     const { wallets, nextCursor } = await findAllActiveBusinessWallets(prisma, {
-      cursor: walletCursor,
+      ...(walletCursor !== undefined && { cursor: walletCursor }),
       pageSize: WALLET_PAGE_SIZE,
     });
 

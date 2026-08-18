@@ -1,11 +1,12 @@
+import type { EventStatus } from "@herledger/sdk";
 import { describe, it, expect } from "vitest";
+
 import {
   deriveDisputeLifecycleStatus,
   isDisputeTerminal,
   DISPUTE_STATUS_LABELS,
   type DisputeStatus,
 } from "../status";
-import type { EventStatus } from "@herledger/sdk";
 
 describe("deriveDisputeLifecycleStatus", () => {
   it("forces Resolved when the on-chain event has been Verified, regardless of stored status", () => {

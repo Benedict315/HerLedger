@@ -1,11 +1,13 @@
-import { NextRequest } from "next/server";
-import { PrismaClient } from "@prisma/client";
-import { auth } from "@/lib/auth/server";
 import { headers } from "next/headers";
+import { NextRequest } from "next/server";
+
 import { typedJson } from "@/lib/api/route-handler";
+import { auth } from "@/lib/auth/server";
+import { getPrismaClient } from "@/lib/db/client";
+
 import { RequestSchema, type BusinessRegisterResponse } from "./schema";
 
-const prisma = new PrismaClient();
+const prisma = getPrismaClient();
 
 export async function POST(req: NextRequest) {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -42,7 +44,13 @@ export async function POST(req: NextRequest) {
     });
     if (existing) {
       return typedJson<BusinessRegisterResponse>(
-        { data: null, error: { code: "ALREADY_REGISTERED", message: "Business already registered for this account" } },
+        {
+          data: null,
+          error: {
+            code: "ALREADY_REGISTERED",
+            message: "Business already registered for this account",
+          },
+        },
         { status: 409 }
       );
     }

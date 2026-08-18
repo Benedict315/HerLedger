@@ -1,36 +1,31 @@
 "use client";
 
+import { getPublicEnv } from "@herledger/config";
+import { disputeFinancialEvent, getConnectedAddress } from "@herledger/sdk";
+import type { StellarNetworkConfig } from "@herledger/sdk";
+import { Account } from "@stellar/stellar-sdk";
 import { useState } from "react";
+
+import { ErrorMessage } from "@/components/ui/error-message";
 import { FormField } from "@/components/ui/form-field";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { ErrorMessage } from "@/components/ui/error-message";
-import { disputeFinancialEvent, getConnectedAddress } from "@herledger/sdk";
-import { getPublicEnv } from "@herledger/config";
-import { Account } from "@stellar/stellar-sdk";
-import type { StellarNetworkConfig, ContractConfig } from "@herledger/sdk";
+import { getContractConfig } from "@/lib/stellar/network";
 
 interface DisputeFormProps {
   eventId: string;
   onSuccess: () => void;
 }
 
-function getConfigs(): { stellar: StellarNetworkConfig; contracts: ContractConfig } {
+function getStellarConfig(): StellarNetworkConfig {
   const env = getPublicEnv();
   return {
-    stellar: {
-      network: env.NEXT_PUBLIC_STELLAR_NETWORK,
-      rpcUrl: env.NEXT_PUBLIC_STELLAR_RPC_URL,
-      horizonUrl: "",
-      networkPassphrase:
-        env.NEXT_PUBLIC_STELLAR_NETWORK === "mainnet"
-          ? "Public Global Stellar Network ; September 2015"
-          : "Test SDF Network ; September 2015",
-    },
-    contracts: {
-      businessRegistryId: env.NEXT_PUBLIC_BUSINESS_REGISTRY_CONTRACT_ID,
-      financialLedgerId: env.NEXT_PUBLIC_FINANCIAL_LEDGER_CONTRACT_ID,
-      attestationRegistryId: env.NEXT_PUBLIC_ATTESTATION_REGISTRY_CONTRACT_ID,
-    },
+    network: env.NEXT_PUBLIC_STELLAR_NETWORK,
+    rpcUrl: env.NEXT_PUBLIC_STELLAR_RPC_URL,
+    horizonUrl: "",
+    networkPassphrase:
+      env.NEXT_PUBLIC_STELLAR_NETWORK === "mainnet"
+        ? "Public Global Stellar Network ; September 2015"
+        : "Test SDF Network ; September 2015",
   };
 }
 
@@ -65,7 +60,8 @@ export function DisputeForm({ eventId, onSuccess }: DisputeFormProps) {
       }
 
       const reasonHash = hashReason(reason);
-      const { stellar, contracts } = getConfigs();
+      const stellar = getStellarConfig();
+      const contracts = getContractConfig();
       const sourceAccount = new Account(ownerAddress, "0");
 
       const result = await disputeFinancialEvent(
@@ -103,7 +99,6 @@ export function DisputeForm({ eventId, onSuccess }: DisputeFormProps) {
             "Your dispute was recorded on-chain, but we could not save your reason text for later reference. Keep a copy of it yourself."
           );
         }
-
       } else {
         setError("Dispute transaction did not succeed. Please try again.");
       }
@@ -122,8 +117,8 @@ export function DisputeForm({ eventId, onSuccess }: DisputeFormProps) {
           Dispute submitted
         </h2>
         <p style={{ color: "var(--muted)", fontSize: "0.9375rem", marginBottom: "1rem" }}>
-          This event's status is now Disputed. You can track its resolution
-          from the dispute list.
+          This event&apos;s status is now Disputed. You can track its resolution from the dispute
+          list.
         </p>
         <p style={{ fontSize: "0.875rem", marginBottom: "1rem" }}>
           <a
@@ -163,9 +158,8 @@ export function DisputeForm({ eventId, onSuccess }: DisputeFormProps) {
         Challenge this record
       </h2>
       <p style={{ color: "var(--muted)", fontSize: "0.9375rem", marginBottom: "1rem" }}>
-        Submitting a dispute changes the HerLedger record state to Disputed.
-        It does not alter the original Stellar transaction — blockchain history
-        cannot be modified.
+        Submitting a dispute changes the HerLedger record state to Disputed. It does not alter the
+        original Stellar transaction — blockchain history cannot be modified.
       </p>
 
       {error && <ErrorMessage message={error} />}

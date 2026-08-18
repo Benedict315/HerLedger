@@ -355,11 +355,7 @@ export async function revokeFinancialEvent(
     networkPassphrase: config.networkPassphrase,
   })
     .addOperation(
-      contract.call(
-        "revoke_event",
-        encodeBytes32(params.eventId),
-        encodeBytes32(params.reasonHash)
-      )
+      contract.call("revoke_event", encodeBytes32(params.eventId), encodeBytes32(params.reasonHash))
     )
     .setTimeout(300)
     .build();

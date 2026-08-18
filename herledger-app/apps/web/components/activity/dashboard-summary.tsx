@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+
+import type { FinancialEventDto } from "@/app/api/activity/recent/schema";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { formatAmount } from "@/lib/utils/format";
-import { apiClient } from "@/lib/api/client";
-import type { FinancialEventDto } from "@/app/api/activity/recent/schema";
 import { useEventStream } from "@/hooks/use-event-stream";
+import { apiClient } from "@/lib/api/client";
+import { formatAmount } from "@/lib/utils/format";
 
 export function DashboardSummary() {
   const [events, setEvents] = useState<FinancialEventDto[]>([]);
@@ -15,24 +16,35 @@ export function DashboardSummary() {
   const [error, setError] = useState<string | null>(null);
   const { newEvents } = useEventStream();
 
-  async function fetchSummary() {
-    try {
-      const data = await apiClient.activity.recent();
-      setEvents(data.events);
-    } catch {
-      setError("Could not load recent activity. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   useEffect(() => {
+    async function fetchSummary() {
+      try {
+        const data = await apiClient.activity.recent();
+        setEvents(data.events);
+      } catch {
+        setError("Could not load recent activity. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
     void fetchSummary();
   }, []);
 
   useEffect(() => {
+    async function refetchSummary() {
+      try {
+        const data = await apiClient.activity.recent();
+        setEvents(data.events);
+      } catch {
+        setError("Could not load recent activity. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
     if (newEvents.length > 0) {
-      void fetchSummary();
+      void refetchSummary();
     }
   }, [newEvents]);
 
