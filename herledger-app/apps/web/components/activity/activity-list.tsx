@@ -5,24 +5,14 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatAmount } from "@/lib/utils/format";
+import { apiClient, ApiRequestError } from "@/lib/api/client";
+import type { FinancialEventDto } from "@/app/api/activity/recent/schema";
 import { useEventStream } from "@/hooks/use-event-stream";
-import Link from "next/link";
-
-interface FinancialEventRow {
-  id: string;
-  eventId: string;
-  eventType: string;
-  assetAddress: string;
-  amount: string;
-  status: string;
-  stellarReference: string;
-  ledgerSequence: number;
-}
 
 const PAGE_SIZE = 20;
 
 export function ActivityList() {
-  const [events, setEvents] = useState<FinancialEventRow[]>([]);
+  const [events, setEvents] = useState<FinancialEventDto[]>([]);
   const { newEvents } = useEventStream();
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -33,20 +23,15 @@ export function ActivityList() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(
-        `/api/activity/recent?offset=${pageOffset}&limit=${PAGE_SIZE}`
-      );
-      if (!res.ok) throw new Error("Failed to load activity");
-      const json = (await res.json()) as {
-        data: { events: FinancialEventRow[]; pagination: { count: number } } | null;
-        error: unknown;
-      };
-      const data = json.data;
-      if (!data) throw new Error("No data returned");
+      const data = await apiClient.activity.recent({ offset: pageOffset, limit: PAGE_SIZE });
       setEvents(data.events);
       setHasMore(data.pagination.count === PAGE_SIZE);
-    } catch {
-      setError("Could not load activity. Please try again.");
+    } catch (err) {
+      if (err instanceof ApiRequestError && err.code === "UNAUTHORIZED") {
+        setError("Please sign in again to view your activity.");
+      } else {
+        setError("Could not load activity. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -59,18 +44,22 @@ export function ActivityList() {
   useEffect(() => {
     if (newEvents.length > 0 && offset === 0) {
       setEvents((prev) => {
-        const merged = [...newEvents, ...prev];
+        // Cast newEvents to FinancialEventDto[] to satisfy the strict Zod literal types
+        const merged = [...(newEvents as unknown as FinancialEventDto[]), ...prev];
         const seen = new Set();
-        return merged.filter((e) => {
-          if (seen.has(e.eventId)) return false;
-          seen.add(e.eventId);
-          return true;
-        }).slice(0, PAGE_SIZE); // Keep it strictly PAGE_SIZE on first page
+        return merged
+          .filter((e) => {
+            if (seen.has(e.eventId)) return false;
+            seen.add(e.eventId);
+            return true;
+          })
+          .slice(0, PAGE_SIZE); // Keep it strictly PAGE_SIZE on first page
       });
     }
   }, [newEvents, offset]);
 
   if (loading) return <LoadingSpinner label="Loading activity…" />;
+
   if (error) {
     return (
       <div role="alert" style={{ color: "var(--danger)" }}>
@@ -78,6 +67,7 @@ export function ActivityList() {
       </div>
     );
   }
+
   if (events.length === 0 && offset === 0) {
     return (
       <EmptyState
@@ -114,9 +104,7 @@ export function ActivityList() {
                   status={event.status as "Pending" | "Verified" | "Disputed" | "Revoked"}
                 />
               </td>
-              <td style={{ padding: "0.75rem", color: "var(--muted)" }}>
-                {event.ledgerSequence}
-              </td>
+              <td style={{ padding: "0.75rem", color: "var(--muted)" }}>{event.ledgerSequence}</td>
               <td
                 style={{
                   padding: "0.75rem",

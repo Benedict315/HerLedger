@@ -445,9 +445,11 @@ E2E tests must not depend on Mainnet Ã¢â‚¬â€ use Testnet or mocks.
 
 ## Deployment
 
+> **Indexer data quality:** the indexer runs a nightly reconciliation job (RECONCILIATION_CRON_SCHEDULE, default   2 * * *) that samples indexed events (RECONCILIATION_SAMPLE_SIZE, default 50) and cross-checks them against on-chain state, logging any discrepancies. Events that fail to index are written to a dead-letter table instead of being lost, and can be retried via `POST /v1/admin/replay/:errorId` (requires the `x-admin-token` header to match `ADMIN_API_TOKEN` -- set this to a strong secret in production, since the endpoint is admin-only and fails closed if the token is unset). Per-cycle sync counts (indexed/failed/skipped/deadLettered) are available at `GET /indexer/status`.
+
 > **Statement timeout:** the indexer connects to Postgres with a statement_timeout (default 10s) appended to DATABASE_URL at runtime, configurable via DB_STATEMENT_TIMEOUT_MS. This kills a slow or locked query instead of holding its connection (and pool slot) indefinitely. Timed-out queries are logged as errors -- see indexer/src/db/client.ts.
 
-### Frontend Ã¢â‚¬â€ Vercel (or equivalent)
+### Frontend ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Vercel (or equivalent)
 
 | Setting | Value |
 |---------|-------|
@@ -468,7 +470,7 @@ Run Prisma migrations before deploying:
 pnpm db:migrate
 ```
 
-### Indexer Ã¢â‚¬â€ Render (or equivalent long-running service)
+### Indexer ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Render (or equivalent long-running service)
 
 | Setting | Value |
 |---------|-------|
@@ -479,7 +481,7 @@ pnpm db:migrate
 The indexer requires access to `DATABASE_URL` and all Stellar environment variables.
 It does **not** need `BETTER_AUTH_SECRET` or any `NEXT_PUBLIC_*` variables.
 
-### Database Ã¢â‚¬â€ PostgreSQL
+### Database ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â PostgreSQL
 
 - Provision PostgreSQL 16 in the same region as the indexer.
 - Use an internal/private connection string between indexer and database.
@@ -525,12 +527,12 @@ HerLedger's SDK (`packages/sdk`) hand-writes TypeScript clients
 (`contracts/business-registry.ts`, `financial-ledger.ts`,
 `attestation-registry.ts`) that construct XDR-encoded calls against the
 deployed Soroban contracts. Nothing prevents those hand-written clients from
-drifting out of sync with what a contract actually expects â€” a redeployed
+drifting out of sync with what a contract actually expects Ã¢â‚¬â€ a redeployed
 contract with a renamed field or reordered parameter would previously fail
 silently or with an inscrutable RPC error, discovered only at runtime. Two
 mechanisms close that gap:
 
-### 1. `ContractAddress` â€” compile-time contract-address safety
+### 1. `ContractAddress` Ã¢â‚¬â€ compile-time contract-address safety
 
 Contract addresses are no longer plain `string`. `ContractConfig` requires
 the branded `ContractAddress` type (`packages/sdk/src/types/branded.ts`),
@@ -557,17 +559,17 @@ const contracts = buildContractConfig(registry, network, {
   attestationRegistryId: env.ATTESTATION_REGISTRY_CONTRACT_ID,
 });
 
-// contracts is now a validated ContractConfig â€” safe to pass to any SDK function.
+// contracts is now a validated ContractConfig Ã¢â‚¬â€ safe to pass to any SDK function.
 ```
 
 `buildContractConfig` throws `ValidationError` immediately if an address is
-malformed or doesn't match the registry â€” e.g. the `FinancialLedger` address
+malformed or doesn't match the registry Ã¢â‚¬â€ e.g. the `FinancialLedger` address
 accidentally passed where `AttestationRegistry` was expected. Do this once at
 your app's composition root (e.g. `apps/web/lib/stellar/network.ts`) and pass
 the resulting `ContractConfig` through; don't construct one from raw strings
-inline â€” the type system will refuse it.
+inline Ã¢â‚¬â€ the type system will refuse it.
 
-### 2. Generated ABI types â€” catching upgrades at build time
+### 2. Generated ABI types Ã¢â‚¬â€ catching upgrades at build time
 
 `packages/sdk/src/contracts/__generated__/` contains TypeScript interfaces
 generated directly from each contract's on-chain interface (via
@@ -579,13 +581,13 @@ independent source of truth the hand-written clients are checked against.
 cd herledger-app
 pnpm --filter @herledger/sdk generate:abi
 
-# CI-style check â€” fails if committed types are stale, doesn't write:
+# CI-style check Ã¢â‚¬â€ fails if committed types are stale, doesn't write:
 pnpm --filter @herledger/sdk generate:abi:check
 ```
 
 CI runs `generate:abi:check` on every PR (job: `abi-check` in
-`.github/workflows/ci.yml`). If a contract's interface changed â€” a renamed
-method, a reordered parameter, a new required argument â€” the generated
+`.github/workflows/ci.yml`). If a contract's interface changed Ã¢â‚¬â€ a renamed
+method, a reordered parameter, a new required argument Ã¢â‚¬â€ the generated
 output will differ from what's committed and the build fails with an
 explicit diff, rather than the mismatch surfacing later as a runtime
 encoding error.
@@ -601,7 +603,7 @@ encoding error.
 4. Update `CONTRACT_ADDRESSES` (via your env/config) if the deployment
    address changed.
 5. Commit both the regenerated `__generated__/` files and the hand-written
-   client changes together â€” a PR that updates one without the other is
+   client changes together Ã¢â‚¬â€ a PR that updates one without the other is
    exactly the drift this workflow exists to prevent.
 
 This process itself surfaced two pre-existing bugs during development of
@@ -624,8 +626,8 @@ pnpm --filter @herledger/sdk test:smoke
 
 CI runs this nightly and on manual dispatch (job: `testnet-smoke`), using
 `TESTNET_BUSINESS_REGISTRY_CONTRACT_ID` / `TESTNET_FINANCIAL_LEDGER_CONTRACT_ID`
-/ `TESTNET_ATTESTATION_REGISTRY_CONTRACT_ID` repo secrets â€” configure these
-under **Settings â†’ Secrets and variables â†’ Actions**. These are read-only
+/ `TESTNET_ATTESTATION_REGISTRY_CONTRACT_ID` repo secrets Ã¢â‚¬â€ configure these
+under **Settings Ã¢â€ â€™ Secrets and variables Ã¢â€ â€™ Actions**. These are read-only
 calls; no funded account or signing key is required.
 
 ===
@@ -638,7 +640,7 @@ React components must not construct contract calls directly.
 ### Constructing a ContractConfig
 
 Every SDK contract function takes a `ContractConfig`, whose fields are the
-branded `ContractAddress` type rather than raw `string` â€” see
+branded `ContractAddress` type rather than raw `string` Ã¢â‚¬â€ see
 [Contract ABI Management](#contract-abi-management) for why. Build one once
 at startup:
 
@@ -660,7 +662,7 @@ const contracts = buildContractConfig(registry, network, {
 });
 ```
 
-In practice, don't call this inline at every use site â€” both `apps/web/lib/stellar/network.ts` (`getContractConfig()`, browser-safe) and `indexer/src/config/index.ts` (`getContractConfig()`, server-side) already do this once and export the result. Import from there rather than duplicating the registry construction in a component or route handler.
+In practice, don't call this inline at every use site Ã¢â‚¬â€ both `apps/web/lib/stellar/network.ts` (`getContractConfig()`, browser-safe) and `indexer/src/config/index.ts` (`getContractConfig()`, server-side) already do this once and export the result. Import from there rather than duplicating the registry construction in a component or route handler.
 
 
 ### BusinessRegistry
@@ -681,7 +683,7 @@ const business = await getBusiness(businessId, stellarConfig, contractConfig);
 // Read by wallet address
 const business = await getBusinessByWallet(walletAddress, stellarConfig, contractConfig);
 
-// Register Ã¢â‚¬â€ requires Freighter to be connected, returns tx hash
+// Register ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â requires Freighter to be connected, returns tx hash
 const result = await registerBusiness(
   { businessId, owner, wallet, metadataHash, sourceAccount },
   stellarConfig,
@@ -721,7 +723,7 @@ import {
 ### Amount handling
 
 ```typescript
-// Amounts are always bigint Ã¢â‚¬â€ never Number
+// Amounts are always bigint ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â never Number
 const event: FinancialEvent = await getFinancialEvent(eventId, config, contracts);
 console.log(event.amount); // bigint, e.g. 100_000_000n (= 10 XLM in stroops)
 
@@ -770,17 +772,17 @@ On restart it resumes from `lastLedger`. On first run it starts from ledger 0
 ### Idempotency
 
 All database writes use `upsert` with the on-chain event ID as the unique key.
-Processing the same transaction twice is safe Ã¢â‚¬â€ the second pass is a no-op for
+Processing the same transaction twice is safe ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â the second pass is a no-op for
 blockchain-derived fields, and only updates mutable status fields.
 
 ### Payment classification rules
 
 | Rule | PaymentReceived | PaymentSent |
 |------|----------------|-------------|
-| Transaction succeeded | Ã¢Å“â€œ required | Ã¢Å“â€œ required |
-| Business wallet is recipient | Ã¢Å“â€œ | Ã¢â‚¬â€ |
-| Business wallet is sender | Ã¢â‚¬â€ | Ã¢Å“â€œ |
-| Asset is supported | Ã¢Å“â€œ required | Ã¢Å“â€œ required |
+| Transaction succeeded | ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“ required | ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“ required |
+| Business wallet is recipient | ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“ | ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â |
+| Business wallet is sender | ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â | ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“ |
+| Asset is supported | ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“ required | ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“ required |
 
 Failed transactions are **never** classified.
 Unsupported assets are **never** classified.
@@ -816,8 +818,8 @@ All responses follow:
 GET /businesses/:id/events?offset=0&limit=20
 ```
 
-- `offset`: integer Ã¢â€°Â¥ 0, default 0
-- `limit`: integer 1Ã¢â‚¬â€œ100, default 20
+- `offset`: integer ÃƒÂ¢Ã¢â‚¬Â°Ã‚Â¥ 0, default 0
+- `limit`: integer 1ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“100, default 20
 - Response includes `pagination.count` for next-page detection
 
 ---
@@ -825,30 +827,30 @@ GET /businesses/:id/events?offset=0&limit=20
 ## Onboarding Flow
 
 ```
-1. Sign up / sign in (Better Auth Ã¢â‚¬â€ email + password)
-        Ã¢â€ â€œ
+1. Sign up / sign in (Better Auth ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â email + password)
+        ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬Å“
 2. Connect Stellar wallet (Freighter browser extension)
-        Ã¢â€ â€œ
+        ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬Å“
 3. Freighter confirms wallet ownership (no secret key transmitted)
-        Ã¢â€ â€œ
+        ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬Å“
 4. Enter business name
-        Ã¢â€ â€œ
+        ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬Å“
 5. App derives deterministic business ID from wallet + name + timestamp
-        Ã¢â€ â€œ
+        ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬Å“
 6. App hashes private metadata (name committed as hash only)
-        Ã¢â€ â€œ
+        ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬Å“
 7. App builds BusinessRegistry.register_business() transaction
-        Ã¢â€ â€œ
+        ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬Å“
 8. Freighter prompts user to sign
-        Ã¢â€ â€œ
+        ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬Å“
 9. App submits signed transaction to Stellar
-        Ã¢â€ â€œ
+        ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬Å“
 10. App polls for confirmation (up to 60 seconds)
-        Ã¢â€ â€œ
-11. On-chain success Ã¢â€ â€™ app saves BusinessProfile to database
-        Ã¢â€ â€œ
+        ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬Å“
+11. On-chain success ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ app saves BusinessProfile to database
+        ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬Å“
 12. Redirect to dashboard
-        Ã¢â€ â€œ
+        ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬Å“
 13. Indexer begins detecting activity for the registered wallet
 ```
 
@@ -891,18 +893,18 @@ HerLedger does **not** claim that every incoming payment is revenue.
 A business owner can challenge an incorrect HerLedger record:
 
 ```
-Dashboard Ã¢â€ â€™ Activity Ã¢â€ â€™ Select event Ã¢â€ â€™ Challenge record
-        Ã¢â€ â€œ
+Dashboard ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Activity ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Select event ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Challenge record
+        ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬Å“
 Enter reason for dispute (kept off-chain; only hash committed)
-        Ã¢â€ â€œ
+        ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬Å“
 App hashes the reason text
-        Ã¢â€ â€œ
+        ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬Å“
 App builds FinancialLedger.dispute_event() transaction
-        Ã¢â€ â€œ
+        ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬Å“
 Freighter prompts owner to sign
-        Ã¢â€ â€œ
+        ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬Å“
 Transaction submitted and confirmed
-        Ã¢â€ â€œ
+        ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬Å“
 Event status changes to Disputed on-chain and in the index
 ```
 
@@ -913,7 +915,7 @@ Event status changes to Disputed on-chain and in the index
 - Directly mark the event Verified or Revoked
 
 Dispute changes HerLedger application state, **not** Stellar history.
-Revoked and disputed events remain visible in the UI Ã¢â‚¬â€ they are never hidden.
+Revoked and disputed events remain visible in the UI ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â they are never hidden.
 
 ---
 
@@ -921,7 +923,7 @@ Revoked and disputed events remain visible in the UI Ã¢â‚¬â€ they are
 
 | Data | Storage | Visibility |
 |------|---------|------------|
-| Stellar transactions | Stellar blockchain | Public Ã¢â‚¬â€ anyone can query |
+| Stellar transactions | Stellar blockchain | Public ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â anyone can query |
 | Business ID | On-chain (hash) | Public |
 | Metadata hash | On-chain (hash only) | Public hash, private content |
 | Business name | Off-chain database | Private to the application |
@@ -947,9 +949,9 @@ Key properties:
 - **Server secrets never reach the browser.** `DATABASE_URL` and `BETTER_AUTH_SECRET` are never in `NEXT_PUBLIC_*`.
 - **Input validation.** All API inputs validated with Zod. No `as any` bypasses.
 - **Immutable blockchain records.** Stellar-derived fields cannot be changed by API requests.
-- **Auth Ã¢â€°Â  wallet.** Signing into HerLedger and connecting a Stellar wallet are independent steps.
+- **Auth ÃƒÂ¢Ã¢â‚¬Â°Ã‚Â  wallet.** Signing into HerLedger and connecting a Stellar wallet are independent steps.
 
-> Ã¢Å¡Â Ã¯Â¸Â **These contracts have not been audited.** Do not deploy with real financial data without a professional security review.
+> ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â **These contracts have not been audited.** Do not deploy with real financial data without a professional security review.
 
 ---
 
