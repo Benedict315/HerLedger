@@ -110,9 +110,7 @@ export function ActivityList() {
                 {formatAmount(BigInt(event.amount))}
               </td>
               <td style={{ padding: "0.75rem" }}>
-                <StatusBadge
-                  status={event.status}
-                />
+                <StatusBadge status={event.status} />
               </td>
               <td style={{ padding: "0.75rem", color: "var(--muted)" }}>{event.ledgerSequence}</td>
               <td

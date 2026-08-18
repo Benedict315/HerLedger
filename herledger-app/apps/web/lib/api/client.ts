@@ -1,6 +1,5 @@
 import type { z } from "zod";
 
-
 import {
   RequestSchema as ActivityRecentRequestSchema,
   ResponseSchema as ActivityRecentResponseSchema,

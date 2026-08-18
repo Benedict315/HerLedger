@@ -51,9 +51,7 @@ function handleEvents(data: unknown) {
   if (!Array.isArray(data) || data.length === 0) return;
   // Trusted cast: the SSE payload's shape is owned by our own API route.
   const incoming = data as unknown as FinancialEventSummary[];
-  const newUnique = incoming.filter(
-    (d) => !globalNewEvents.some((p) => p.eventId === d.eventId)
-  );
+  const newUnique = incoming.filter((d) => !globalNewEvents.some((p) => p.eventId === d.eventId));
   if (newUnique.length > 0) {
     globalNewEvents = [...newUnique, ...globalNewEvents];
     notifySubscribers();
