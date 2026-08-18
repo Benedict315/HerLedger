@@ -1,12 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { signUp } from "@/lib/auth/client";
+import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
+
+import { ErrorMessage } from "@/components/ui/error-message";
 import { FormField } from "@/components/ui/form-field";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { ErrorMessage } from "@/components/ui/error-message";
+import { signUp } from "@/lib/auth/client";
 import { runExclusive } from "@/lib/utils/submit-guard";
 
 export function SignUpForm() {
@@ -91,8 +92,7 @@ export function SignUpForm() {
           color: "var(--muted)",
         }}
       >
-        Already have an account?{" "}
-        <Link href="/auth/sign-in">Sign in</Link>
+        Already have an account? <Link href="/auth/sign-in">Sign in</Link>
       </p>
     </form>
   );

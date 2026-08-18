@@ -61,7 +61,11 @@ export {
   toContractAddress,
   buildContractConfig,
 } from "./contracts/registry.js";
-export type { ContractName, ContractAddressRegistry, ContractAddressRegistryEntry } from "./contracts/registry.js";
+export type {
+  ContractName,
+  ContractAddressRegistry,
+  ContractAddressRegistryEntry,
+} from "./contracts/registry.js";
 
 // Generated ABI types
 export * from "./contracts/__generated__/index.js";

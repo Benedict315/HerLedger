@@ -1,32 +1,30 @@
-import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
-import { PrismaClient } from "@prisma/client";
-import { auth } from "@/lib/auth/server";
 import { headers } from "next/headers";
+import { NextRequest } from "next/server";
 
-const prisma = new PrismaClient();
+import { typedJson } from "@/lib/api/route-handler";
+import { auth } from "@/lib/auth/server";
+import { getPrismaClient } from "@/lib/db/client";
 
-const querySchema = z.object({
-  offset: z.coerce.number().int().min(0).default(0),
-  limit: z.coerce.number().int().min(1).max(100).default(20),
-});
+import { RequestSchema, type ActivityRecentResponse } from "./schema";
+
+const prisma = getPrismaClient();
 
 export async function GET(req: NextRequest) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) {
-    return NextResponse.json(
+    return typedJson<ActivityRecentResponse>(
       { data: null, error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
       { status: 401 }
     );
   }
 
   const { searchParams } = new URL(req.url);
-  const parsed = querySchema.safeParse({
+  const parsed = RequestSchema.safeParse({
     offset: searchParams.get("offset"),
     limit: searchParams.get("limit"),
   });
   if (!parsed.success) {
-    return NextResponse.json(
+    return typedJson<ActivityRecentResponse>(
       { data: null, error: { code: "INVALID_PARAMS", message: "Invalid pagination params" } },
       { status: 400 }
     );
@@ -38,7 +36,10 @@ export async function GET(req: NextRequest) {
   });
 
   if (!profile) {
-    return NextResponse.json({ data: { events: [], pagination: { offset: 0, limit: parsed.data.limit, count: 0 } }, error: null });
+    return typedJson<ActivityRecentResponse>({
+      data: { events: [], pagination: { offset: 0, limit: parsed.data.limit, count: 0 } },
+      error: null,
+    });
   }
 
   const events = await prisma.financialEvent.findMany({
@@ -48,7 +49,7 @@ export async function GET(req: NextRequest) {
     take: parsed.data.limit,
   });
 
-  return NextResponse.json({
+  return typedJson<ActivityRecentResponse>({
     data: {
       events,
       pagination: {

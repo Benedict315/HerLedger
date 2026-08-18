@@ -64,6 +64,56 @@ production for real financial data without a professional security review.
   never surfaces a different message verbatim even if a future plugin,
   misconfiguration, or upstream change makes one path more specific than
   another.
+- **Dispute reason encryption at rest**: The plaintext reason a business
+  owner gives when disputing a `FinancialEvent` is encrypted before it is
+  written to the `disputes` table (`Dispute.reasonPlaintext` -- see field
+  comment in `prisma/schema.prisma` for why the encrypted column keeps that
+  name). It is never persisted, logged, or returned unencrypted except in
+  the single API response path described below.
+
+## Dispute reason encryption scheme
+
+Only a hash of the dispute reason (`reason_hash: BytesN<32>`) is submitted
+on-chain via `dispute_event`. The plaintext itself is stored off-chain so a
+business owner can recall why they disputed an event, and so it can be
+reproduced to verify `reason_hash` against the on-chain record -- but it is
+sensitive business/financial detail, so it is encrypted at rest.
+
+- **Algorithm**: AES-256-GCM (authenticated encryption -- ciphertext
+  tampering is detected, not just prevented).
+- **Key derivation**: The AES key is never itself stored. It is derived on
+  demand from `BETTER_AUTH_SECRET` using HKDF (RFC 5869, HMAC-SHA256) with
+  a fixed, feature-specific `info` string
+  (`herledger:dispute-reason:aes-256-gcm:v1`). This means:
+  - No separate key management system is needed for this MVP -- the same
+    root secret that already protects Better Auth sessions protects dispute
+    reasons.
+  - HKDF's `info` parameter domain-separates this key from any other key a
+    future feature might derive from the same `BETTER_AUTH_SECRET`, even
+    though they'd share the same input keying material.
+  - Derivation is deterministic: the same secret always yields the same
+    key, so existing ciphertexts stay decryptable without a key store.
+    Rotating `BETTER_AUTH_SECRET` would require re-encrypting all existing
+    `Dispute.reasonPlaintext` rows with the newly-derived key -- there is no
+    automatic re-encryption migration for this yet.
+- **Nonce**: A fresh random 96-bit IV is generated for every encryption
+  call (required for GCM -- a nonce must never be reused with the same
+  key). The IV and the GCM authentication tag are stored alongside the
+  ciphertext in a single `iv:authTag:ciphertext` (base64 segments) envelope
+  string, so no additional columns are needed to decrypt.
+- **Implementation**: `apps/web/lib/crypto/dispute-encryption.ts`
+  (`encryptDisputeReason` / `decryptDisputeReason`). Decryption failures
+  (wrong key, corrupted data, tampered ciphertext or auth tag, malformed
+  envelope) always raise a typed `DisputeDecryptionError` -- native
+  `node:crypto` exceptions are caught and never propagate unhandled, so a
+  bad decrypt cannot crash the server process.
+- **Access control**: `GET /api/disputes/:eventId` only decrypts and
+  returns `reasonPlaintext` when the requesting session belongs to the
+  business owner who filed the dispute. Every other caller -- including an
+  unauthenticated request, a different HerLedger user, or the event's
+  attester -- gets a 403 with no dispute data at all, not a redacted
+  version of the response. Reading a dispute reason back is a capability
+  reserved for the party with a legitimate need for it.
 
 ## Stellar transaction visibility
 
@@ -77,6 +127,7 @@ If you discover a security vulnerability, please do not open a public issue.
 Contact the maintainers privately at the email listed in the repository.
 
 Provide:
+
 - Description of the vulnerability
 - Steps to reproduce
 - Potential impact assessment

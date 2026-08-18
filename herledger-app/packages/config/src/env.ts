@@ -1,11 +1,9 @@
 import { z } from "zod";
 import { StrKey } from "@stellar/stellar-sdk";
 
-const stellarContractId = z
-  .string()
-  .refine((val) => StrKey.isValidContract(val), {
-    message: "Must be a valid Stellar contract address (56-char C... strkey)",
-  });
+const stellarContractId = z.string().refine((val) => StrKey.isValidContract(val), {
+  message: "Must be a valid Stellar contract address (56-char C... strkey)",
+});
 
 // ---------------------------------------------------------------------------
 // Server-side environment schema (never exposed to browser)
@@ -47,9 +45,7 @@ export type PublicEnv = z.infer<typeof publicEnvSchema>;
 export function getServerEnv(): ServerEnv {
   const result = serverEnvSchema.safeParse(process.env);
   if (!result.success) {
-    const issues = result.error.issues
-      .map((i) => `  ${i.path.join(".")}: ${i.message}`)
-      .join("\n");
+    const issues = result.error.issues.map((i) => `  ${i.path.join(".")}: ${i.message}`).join("\n");
     throw new Error(
       `[HerLedger] Missing or invalid server environment variables:\n${issues}\n\nSee .env.example for required configuration.`
     );
@@ -64,9 +60,7 @@ export function getServerEnv(): ServerEnv {
 export function getPublicEnv(): PublicEnv {
   const result = publicEnvSchema.safeParse(process.env);
   if (!result.success) {
-    const issues = result.error.issues
-      .map((i) => `  ${i.path.join(".")}: ${i.message}`)
-      .join("\n");
+    const issues = result.error.issues.map((i) => `  ${i.path.join(".")}: ${i.message}`).join("\n");
     throw new Error(
       `[HerLedger] Missing or invalid public environment variables:\n${issues}\n\nSee .env.example for required configuration.`
     );
@@ -125,8 +119,7 @@ export function validateNetworkConsistency(
   rpcUrl: string,
   passphrase: string
 ): void {
-  const expectedPassphrase =
-    network === "mainnet" ? MAINNET_PASSPHRASE : TESTNET_PASSPHRASE;
+  const expectedPassphrase = network === "mainnet" ? MAINNET_PASSPHRASE : TESTNET_PASSPHRASE;
 
   if (passphrase !== expectedPassphrase) {
     throw new Error(

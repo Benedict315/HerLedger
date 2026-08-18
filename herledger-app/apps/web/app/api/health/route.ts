@@ -1,5 +1,7 @@
-import { NextResponse } from "next/server";
+import { typedJson } from "@/lib/api/route-handler";
+
+import type { HealthResponse } from "./schema";
 
 export function GET() {
-  return NextResponse.json({ data: { status: "ok" }, error: null });
+  return typedJson<HealthResponse>({ data: { status: "ok" }, error: null });
 }

@@ -1,25 +1,18 @@
+import { getServerEnv } from "@herledger/config";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "@prisma/client";
-import { getServerEnv } from "@herledger/config";
+
+import { getPrismaClient } from "@/lib/db/client";
 
 // ---------------------------------------------------------------------------
 // Better Auth server instance
 // Application auth is separate from Stellar wallet connection.
-//
-// Prisma 7's client no longer accepts a bare connection string
-// (`datasourceUrl`) — it requires an explicit driver adapter. See
-// https://pris.ly/d/driver-adapters.
 // ---------------------------------------------------------------------------
 
 const env = getServerEnv();
 
-const adapter = new PrismaPg({ connectionString: env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
-
 export const auth = betterAuth({
-  database: prismaAdapter(prisma, {
+  database: prismaAdapter(getPrismaClient(), {
     provider: "postgresql",
   }),
   secret: env.BETTER_AUTH_SECRET,

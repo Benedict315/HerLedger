@@ -1,34 +1,29 @@
 "use client";
 
 import { useEffect, useState } from "react";
+
+import type { AttestationDto } from "@/app/api/attestations/schema";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { StatusBadge } from "@/components/ui/status-badge";
-
-interface AttestationRow {
-  id: string;
-  attestationId: string;
-  eventId: string;
-  attesterAddress: string;
-  claimHash: string;
-  status: string;
-  ledgerSequence: number;
-}
+import { apiClient, ApiRequestError } from "@/lib/api/client";
 
 export function AttestationList() {
-  const [attestations, setAttestations] = useState<AttestationRow[]>([]);
+  const [attestations, setAttestations] = useState<AttestationDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     void (async () => {
       try {
-        const res = await fetch("/api/attestations");
-        if (!res.ok) throw new Error();
-        const json = (await res.json()) as { data: { attestations: AttestationRow[] } | null };
-        setAttestations(json.data?.attestations ?? []);
-      } catch {
-        setError("Could not load attestations.");
+        const data = await apiClient.attestations.list();
+        setAttestations(data.attestations);
+      } catch (err) {
+        if (err instanceof ApiRequestError && err.code === "UNAUTHORIZED") {
+          setError("Please sign in again to view attestations.");
+        } else {
+          setError("Could not load attestations.");
+        }
       } finally {
         setLoading(false);
       }
@@ -72,10 +67,8 @@ export function AttestationList() {
               marginBottom: "0.5rem",
             }}
           >
-            <span style={{ fontWeight: 500, fontSize: "0.9375rem" }}>
-              Attestation
-            </span>
-            <StatusBadge status={att.status as "Active" | "Revoked"} />
+            <span style={{ fontWeight: 500, fontSize: "0.9375rem" }}>Attestation</span>
+            <StatusBadge status={att.status} />
           </div>
           <dl style={{ fontSize: "0.875rem", color: "var(--muted)", margin: 0 }}>
             <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.25rem" }}>
