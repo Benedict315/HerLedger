@@ -28,6 +28,16 @@ export const auth = betterAuth({
     },
   },
   trustedOrigins: [env.APP_URL],
+  advanced: {
+    // Better Auth has no `csrf` option — CSRF protection is the
+    // Origin/Referer + Fetch Metadata check in its origin-check middleware,
+    // and it is on by default. BUT that middleware auto-disables itself
+    // whenever NODE_ENV === "test" (see @better-auth/core's `isTest()`),
+    // which is exactly what CI sets for the whole test job. Force it on
+    // explicitly so a `test` NODE_ENV can never silently turn off CSRF
+    // protection in this app, in CI or otherwise.
+    disableOriginCheck: false,
+  },
 });
 
 export type Auth = typeof auth;
