@@ -1,5 +1,5 @@
 // HerLedger application database schema
-// The database is an indexed application layer — NOT the source of truth for on-chain data.
+// The database is an indexed application layer Ã¢â‚¬â€ NOT the source of truth for on-chain data.
 // Blockchain-derived fields are immutable after indexing.
 
 generator client {
@@ -12,7 +12,7 @@ datasource db {
 }
 
 // ---------------------------------------------------------------------------
-// Better Auth — user and session models
+// Better Auth Ã¢â‚¬â€ user and session models
 // ---------------------------------------------------------------------------
 
 model User {
@@ -116,7 +116,7 @@ model FinancialEvent {
   eventType        EventType
   /// Stellar asset contract address
   assetAddress     String
-  /// Stored as string to preserve i128 precision — never cast to Number
+  /// Stored as string to preserve i128 precision Ã¢â‚¬â€ never cast to Number
   amount           String
   /// Stellar transaction hash (hex-encoded BytesN<32>)
   stellarReference String
@@ -181,7 +181,7 @@ model IndexerCheckpoint {
 }
 
 // ---------------------------------------------------------------------------
-// Enums — mirror on-chain definitions
+// Enums Ã¢â‚¬â€ mirror on-chain definitions
 // ---------------------------------------------------------------------------
 
 enum EventType {
@@ -201,4 +201,32 @@ enum EventStatus {
 enum AttestationStatus {
   Active
   Revoked
+}
+
+
+/// Dead-letter table for events the indexer failed to process. Holds the
+/// raw XDR so a fixed bug can be replayed via POST /v1/admin/replay/:errorId
+/// instead of the event being lost. `resolvedAt` is set on successful
+/// replay; unresolved rows accumulate a `retryCount` on each failed retry.
+model IndexerError {
+  id            String    @id @default(cuid())
+  /// Public identifier used in the replay API path -- distinct from `id`
+  /// so failed replays do not leak the internal cuid.
+  errorId       String    @unique @default(cuid())
+  /// Raw transaction XDR, needed to re-run parsing + indexing on replay.
+  rawXdr        String
+  /// Extra context needed to replay this event (e.g. walletAddress),
+  /// stored as JSON since it varies by failure stage.
+  context       Json?
+  /// What stage failed (e.g. "parse", "index"), for grouping in metrics.
+  stage         String
+  message       String
+  retryCount    Int       @default(0)
+  resolvedAt    DateTime? @db.Timestamptz
+  createdAt     DateTime  @default(now()) @db.Timestamptz
+  updatedAt     DateTime  @updatedAt @db.Timestamptz
+
+  @@index([stage])
+  @@index([resolvedAt])
+  @@map("indexer_errors")
 }
