@@ -1,4 +1,4 @@
-import { getServerEnv, validateNetworkConsistency } from "@herledger/config";
+import { getServerEnv, validateNetworkConsistency } from "@herledger/config/server";
 
 export async function register(): Promise<void> {
   if (process.env.NEXT_RUNTIME === "nodejs") {

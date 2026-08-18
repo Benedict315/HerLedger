@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { z } from "zod";
 import { StrKey } from "@stellar/stellar-sdk";
-import { validateNetworkConsistency } from "../env.js";
+import { validateNetworkConsistency } from "../server.js";
 
 const MAINNET_PASSPHRASE = "Public Global Stellar Network ; September 2015";
 const TESTNET_PASSPHRASE = "Test SDF Network ; September 2015";

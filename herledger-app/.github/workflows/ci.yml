@@ -84,6 +84,10 @@ jobs:
         run: pnpm lint
         working-directory: herledger-app
 
+      - name: Validate .env.example
+        run: cp .env.example .env.local && pnpm env:validate
+        working-directory: herledger-app
+
       - name: Prisma validate
         run: pnpm prisma validate --schema prisma/schema.prisma
         working-directory: herledger-app
