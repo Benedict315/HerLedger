@@ -1,4 +1,3 @@
-import { Networks } from "@stellar/stellar-sdk";
 import { getPublicEnv } from "@herledger/config";
 import {
   registerCurrentNetworkAddresses,
@@ -6,12 +5,11 @@ import {
   type ContractConfig,
   type NetworkId,
 } from "@herledger/sdk";
+import { Networks } from "@stellar/stellar-sdk";
 
 export function getNetworkPassphrase(): string {
   const env = getPublicEnv();
-  return env.NEXT_PUBLIC_STELLAR_NETWORK === "mainnet"
-    ? Networks.PUBLIC
-    : Networks.TESTNET;
+  return env.NEXT_PUBLIC_STELLAR_NETWORK === "mainnet" ? Networks.PUBLIC : Networks.TESTNET;
 }
 
 /**

@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+
 import {
   deriveDisputeEncryptionKey,
   encryptDisputeReason,
@@ -29,9 +30,7 @@ describe("deriveDisputeEncryptionKey", () => {
   });
 
   it("rejects a secret shorter than 32 characters", () => {
-    expect(() => deriveDisputeEncryptionKey("too-short")).toThrow(
-      /shorter than 32 characters/
-    );
+    expect(() => deriveDisputeEncryptionKey("too-short")).toThrow(/shorter than 32 characters/);
   });
 
   it("rejects an empty secret", () => {
@@ -116,9 +115,7 @@ describe("decryptDisputeReason failure handling", () => {
     tamperedBytes[0] = (tamperedBytes[0] ?? 0) ^ 0xff;
     const tamperedEnvelope = [iv, authTag, tamperedBytes.toString("base64")].join(":");
 
-    expect(() => decryptDisputeReason(tamperedEnvelope, SECRET_A)).toThrow(
-      DisputeDecryptionError
-    );
+    expect(() => decryptDisputeReason(tamperedEnvelope, SECRET_A)).toThrow(DisputeDecryptionError);
   });
 
   it("throws DisputeDecryptionError for a tampered auth tag", () => {
@@ -128,9 +125,7 @@ describe("decryptDisputeReason failure handling", () => {
     tamperedTag[0] = (tamperedTag[0] ?? 0) ^ 0xff;
     const tamperedEnvelope = [iv, tamperedTag.toString("base64"), ciphertext].join(":");
 
-    expect(() => decryptDisputeReason(tamperedEnvelope, SECRET_A)).toThrow(
-      DisputeDecryptionError
-    );
+    expect(() => decryptDisputeReason(tamperedEnvelope, SECRET_A)).toThrow(DisputeDecryptionError);
   });
 
   it("throws DisputeDecryptionError for a malformed envelope (wrong number of segments)", () => {

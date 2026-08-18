@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+
+import type { FinancialEventDto } from "@/app/api/activity/recent/schema";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { formatAmount } from "@/lib/utils/format";
-import { apiClient, ApiRequestError } from "@/lib/api/client";
-import type { FinancialEventDto } from "@/app/api/activity/recent/schema";
 import { useEventStream } from "@/hooks/use-event-stream";
+import { apiClient, ApiRequestError } from "@/lib/api/client";
+import { formatAmount } from "@/lib/utils/format";
 
 const PAGE_SIZE = 20;
 
@@ -19,44 +20,53 @@ export function ActivityList() {
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
 
-  async function fetchPage(pageOffset: number) {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await apiClient.activity.recent({ offset: pageOffset, limit: PAGE_SIZE });
-      setEvents(data.events);
-      setHasMore(data.pagination.count === PAGE_SIZE);
-    } catch (err) {
-      if (err instanceof ApiRequestError && err.code === "UNAUTHORIZED") {
-        setError("Please sign in again to view your activity.");
-      } else {
-        setError("Could not load activity. Please try again.");
-      }
-    } finally {
-      setLoading(false);
-    }
-  }
-
   useEffect(() => {
-    void fetchPage(offset);
+    let ignore = false;
+
+    async function loadPage() {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await apiClient.activity.recent({ offset, limit: PAGE_SIZE });
+        if (ignore) return;
+        setEvents(data.events);
+        setHasMore(data.pagination.count === PAGE_SIZE);
+      } catch (err) {
+        if (ignore) return;
+        if (err instanceof ApiRequestError && err.code === "UNAUTHORIZED") {
+          setError("Please sign in again to view your activity.");
+        } else {
+          setError("Could not load activity. Please try again.");
+        }
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    }
+
+    void loadPage();
+    return () => {
+      ignore = true;
+    };
   }, [offset]);
 
-  useEffect(() => {
-    if (newEvents.length > 0 && offset === 0) {
-      setEvents((prev) => {
-        // Cast newEvents to FinancialEventDto[] to satisfy the strict Zod literal types
-        const merged = [...(newEvents as unknown as FinancialEventDto[]), ...prev];
-        const seen = new Set();
-        return merged
-          .filter((e) => {
-            if (seen.has(e.eventId)) return false;
-            seen.add(e.eventId);
-            return true;
-          })
-          .slice(0, PAGE_SIZE); // Keep it strictly PAGE_SIZE on first page
-      });
-    }
-  }, [newEvents, offset]);
+  // Real-time events from the stream are overlaid onto the fetched page
+  // (rather than merged into `events` via an effect) so this is a plain
+  // render-time derivation, not a "sync state from another value" effect.
+  // Only applies to the first page -- older pages are a fetched snapshot.
+  const displayedEvents = useMemo(() => {
+    if (offset !== 0 || newEvents.length === 0) return events;
+
+    // Cast newEvents to FinancialEventDto[] to satisfy the strict Zod literal types
+    const merged = [...(newEvents as unknown as FinancialEventDto[]), ...events];
+    const seen = new Set<string>();
+    return merged
+      .filter((e) => {
+        if (seen.has(e.eventId)) return false;
+        seen.add(e.eventId);
+        return true;
+      })
+      .slice(0, PAGE_SIZE); // Keep it strictly PAGE_SIZE on first page
+  }, [events, newEvents, offset]);
 
   if (loading) return <LoadingSpinner label="Loading activity…" />;
 
@@ -68,7 +78,7 @@ export function ActivityList() {
     );
   }
 
-  if (events.length === 0 && offset === 0) {
+  if (displayedEvents.length === 0 && offset === 0) {
     return (
       <EmptyState
         title="No financial activity yet."
@@ -93,16 +103,14 @@ export function ActivityList() {
           </tr>
         </thead>
         <tbody>
-          {events.map((event) => (
+          {displayedEvents.map((event) => (
             <tr key={event.id} style={{ borderBottom: "1px solid var(--border)" }}>
               <td style={{ padding: "0.75rem" }}>{formatEventType(event.eventType)}</td>
               <td style={{ padding: "0.75rem", fontFamily: "monospace" }}>
                 {formatAmount(BigInt(event.amount))}
               </td>
               <td style={{ padding: "0.75rem" }}>
-                <StatusBadge
-                  status={event.status as "Pending" | "Verified" | "Disputed" | "Revoked"}
-                />
+                <StatusBadge status={event.status} />
               </td>
               <td style={{ padding: "0.75rem", color: "var(--muted)" }}>{event.ledgerSequence}</td>
               <td

@@ -32,34 +32,22 @@ export async function writeDeadLetter(
   }
 }
 
-export async function findDeadLetterByErrorId(
-  prisma: PrismaClient,
-  errorId: string
-) {
+export async function findDeadLetterByErrorId(prisma: PrismaClient, errorId: string) {
   try {
     return await prisma.indexerError.findUnique({ where: { errorId } });
   } catch (cause) {
-    throw new DatabaseError(
-      `Failed to find dead-letter row ${errorId}`,
-      cause
-    );
+    throw new DatabaseError(`Failed to find dead-letter row ${errorId}`, cause);
   }
 }
 
-export async function markDeadLetterResolved(
-  prisma: PrismaClient,
-  errorId: string
-): Promise<void> {
+export async function markDeadLetterResolved(prisma: PrismaClient, errorId: string): Promise<void> {
   try {
     await prisma.indexerError.update({
       where: { errorId },
       data: { resolvedAt: new Date() },
     });
   } catch (cause) {
-    throw new DatabaseError(
-      `Failed to mark dead-letter row ${errorId} resolved`,
-      cause
-    );
+    throw new DatabaseError(`Failed to mark dead-letter row ${errorId} resolved`, cause);
   }
 }
 
@@ -74,9 +62,6 @@ export async function incrementDeadLetterRetry(
       data: { retryCount: { increment: 1 }, message },
     });
   } catch (cause) {
-    throw new DatabaseError(
-      `Failed to increment retry count for ${errorId}`,
-      cause
-    );
+    throw new DatabaseError(`Failed to increment retry count for ${errorId}`, cause);
   }
 }

@@ -1,19 +1,20 @@
-import { NextRequest } from "next/server";
-import { getServerEnv } from "@herledger/config/server";
-import { PrismaClient } from "@prisma/client";
-import { auth } from "@/lib/auth/server";
-import { headers } from "next/headers";
 
-const prisma = new PrismaClient();
+import { headers } from "next/headers";
+import { NextRequest } from "next/server";
+
+import { auth } from "@/lib/auth/server";
+import { getPrismaClient } from "@/lib/db/client";
+
+const prisma = getPrismaClient();
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const session = await auth.api.getSession({ headers: await headers() });
-  
+
   if (!session) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
-      headers: { "Content-Type": "application/json" }
+      headers: { "Content-Type": "application/json" },
     });
   }
 
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
   if (!profile) {
     return new Response(JSON.stringify({ error: "No business profile" }), {
       status: 400,
-      headers: { "Content-Type": "application/json" }
+      headers: { "Content-Type": "application/json" },
     });
   }
 
@@ -38,7 +39,11 @@ export async function GET(req: NextRequest) {
   const stream = new ReadableStream({
     async start(controller) {
       pingInterval = setInterval(() => {
-        try { controller.enqueue(encoder.encode(":\n\n")); } catch (e) {}
+        try {
+          controller.enqueue(encoder.encode(":\n\n"));
+        } catch {
+          // Controller may already be closed (client disconnected) -- nothing to do.
+        }
       }, 20000);
 
       const checkEvents = async () => {
@@ -46,13 +51,14 @@ export async function GET(req: NextRequest) {
           const events = await prisma.financialEvent.findMany({
             where: {
               businessId: profile.businessId,
-              updatedAt: { gt: lastChecked }
+              updatedAt: { gt: lastChecked },
             },
-            orderBy: { updatedAt: "asc" }
+            orderBy: { updatedAt: "asc" },
           });
 
-          if (events.length > 0) {
-            lastChecked = events[events.length - 1].updatedAt;
+          const lastEvent = events[events.length - 1];
+          if (lastEvent) {
+            lastChecked = lastEvent.updatedAt;
             controller.enqueue(encoder.encode(`data: ${JSON.stringify(events)}\n\n`));
           }
         } catch (err) {
@@ -61,11 +67,15 @@ export async function GET(req: NextRequest) {
       };
 
       pollInterval = setInterval(checkEvents, 5000);
-      
+
       maxTimeout = setTimeout(() => {
         clearInterval(pollInterval);
         clearInterval(pingInterval);
-        try { controller.close(); } catch(e) {}
+        try {
+          controller.close();
+        } catch {
+          // Controller may already be closed -- nothing to do.
+        }
       }, 55000);
 
       req.signal.addEventListener("abort", () => {
@@ -78,14 +88,14 @@ export async function GET(req: NextRequest) {
       clearInterval(pollInterval);
       clearInterval(pingInterval);
       clearTimeout(maxTimeout);
-    }
+    },
   });
 
   return new Response(stream, {
     headers: {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
-      "Connection": "keep-alive",
+      Connection: "keep-alive",
     },
   });
 }

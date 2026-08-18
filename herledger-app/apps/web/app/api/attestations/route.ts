@@ -1,10 +1,12 @@
-import { PrismaClient } from "@prisma/client";
-import { auth } from "@/lib/auth/server";
 import { headers } from "next/headers";
+
 import { typedJson } from "@/lib/api/route-handler";
+import { auth } from "@/lib/auth/server";
+import { getPrismaClient } from "@/lib/db/client";
+
 import type { AttestationsResponse } from "./schema";
 
-const prisma = new PrismaClient();
+const prisma = getPrismaClient();
 
 export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() });
