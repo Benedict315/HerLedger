@@ -1,9 +1,17 @@
 packages:
-  - "apps/*"
-  - "packages/*"
-  - "indexer"
+  - apps/*
+  - packages/*
+  - indexer
+
 allowBuilds:
   '@prisma/engines': true
   esbuild: true
   prisma: true
   unrs-resolver: true
+
+ignoredBuiltDependencies:
+  - prisma
+
+onlyBuiltDependencies:
+  - '@prisma/client'
+  - '@prisma/engines'
