@@ -48,10 +48,12 @@ export function DisputeForm({ eventId, onSuccess }: DisputeFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
+  const [saveWarning, setSaveWarning] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setSaveWarning(null);
     setLoading(true);
 
     try {
@@ -79,7 +81,29 @@ export function DisputeForm({ eventId, onSuccess }: DisputeFormProps) {
 
       if (result.success) {
         setTxHash(result.hash);
-        onSuccess();
+
+        // The on-chain dispute is now the source of truth (EventStatus is
+        // already Disputed). Persisting the plaintext reason off-chain is a
+        // best-effort follow-up -- if it fails, we surface a warning but do
+        // NOT treat the dispute submission itself as failed, since retrying
+        // the on-chain call would raise a duplicate dispute.
+        try {
+          const saveRes = await fetch("/api/disputes", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ eventId, reason, reasonHash }),
+          });
+          if (!saveRes.ok) {
+            setSaveWarning(
+              "Your dispute was recorded on-chain, but we could not save your reason text for later reference. Keep a copy of it yourself."
+            );
+          }
+        } catch {
+          setSaveWarning(
+            "Your dispute was recorded on-chain, but we could not save your reason text for later reference. Keep a copy of it yourself."
+          );
+        }
+
       } else {
         setError("Dispute transaction did not succeed. Please try again.");
       }
@@ -88,6 +112,49 @@ export function DisputeForm({ eventId, onSuccess }: DisputeFormProps) {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (txHash) {
+    const network = getPublicEnv().NEXT_PUBLIC_STELLAR_NETWORK;
+    return (
+      <div>
+        <h2 style={{ fontSize: "1.125rem", fontWeight: 600, marginBottom: "0.75rem" }}>
+          Dispute submitted
+        </h2>
+        <p style={{ color: "var(--muted)", fontSize: "0.9375rem", marginBottom: "1rem" }}>
+          This event's status is now Disputed. You can track its resolution
+          from the dispute list.
+        </p>
+        <p style={{ fontSize: "0.875rem", marginBottom: "1rem" }}>
+          <a
+            href={`https://stellar.expert/explorer/${network}/tx/${txHash}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            View dispute transaction on Stellar Expert
+          </a>
+        </p>
+        {saveWarning && <ErrorMessage message={saveWarning} />}
+        <button
+          type="button"
+          onClick={onSuccess}
+          style={{
+            width: "100%",
+            padding: "0.625rem 1rem",
+            background: "var(--primary)",
+            color: "#fff",
+            border: "none",
+            borderRadius: "var(--radius)",
+            fontSize: "1rem",
+            fontWeight: 500,
+            cursor: "pointer",
+            marginTop: "0.5rem",
+          }}
+        >
+          Done
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -111,7 +178,7 @@ export function DisputeForm({ eventId, onSuccess }: DisputeFormProps) {
           value={reason}
           onChange={setReason}
           required
-          description="Your reason is hashed before being stored on-chain. Keep the original text for your records."
+          description="Your reason is hashed on-chain, and the full text is saved encrypted so you can look it up later."
         />
         <SubmitButton loading={loading}>Submit dispute</SubmitButton>
       </form>

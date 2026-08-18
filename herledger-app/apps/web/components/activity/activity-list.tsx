@@ -7,11 +7,13 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { formatAmount } from "@/lib/utils/format";
 import { apiClient, ApiRequestError } from "@/lib/api/client";
 import type { FinancialEventDto } from "@/app/api/activity/recent/schema";
+import { useEventStream } from "@/hooks/use-event-stream";
 
 const PAGE_SIZE = 20;
 
 export function ActivityList() {
   const [events, setEvents] = useState<FinancialEventDto[]>([]);
+  const { newEvents } = useEventStream();
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,8 +41,25 @@ export function ActivityList() {
     void fetchPage(offset);
   }, [offset]);
 
+  useEffect(() => {
+    if (newEvents.length > 0 && offset === 0) {
+      setEvents((prev) => {
+        // Cast newEvents to FinancialEventDto[] to satisfy the strict Zod literal types
+        const merged = [...(newEvents as unknown as FinancialEventDto[]), ...prev];
+        const seen = new Set();
+        return merged
+          .filter((e) => {
+            if (seen.has(e.eventId)) return false;
+            seen.add(e.eventId);
+            return true;
+          })
+          .slice(0, PAGE_SIZE); // Keep it strictly PAGE_SIZE on first page
+      });
+    }
+  }, [newEvents, offset]);
+
   if (loading) return <LoadingSpinner label="Loading activity…" />;
-  
+
   if (error) {
     return (
       <div role="alert" style={{ color: "var(--danger)" }}>
@@ -48,7 +67,7 @@ export function ActivityList() {
       </div>
     );
   }
-  
+
   if (events.length === 0 && offset === 0) {
     return (
       <EmptyState
@@ -81,11 +100,11 @@ export function ActivityList() {
                 {formatAmount(BigInt(event.amount))}
               </td>
               <td style={{ padding: "0.75rem" }}>
-                <StatusBadge status={event.status as "Pending" | "Verified" | "Disputed" | "Revoked"} />
+                <StatusBadge
+                  status={event.status as "Pending" | "Verified" | "Disputed" | "Revoked"}
+                />
               </td>
-              <td style={{ padding: "0.75rem", color: "var(--muted)" }}>
-                {event.ledgerSequence}
-              </td>
+              <td style={{ padding: "0.75rem", color: "var(--muted)" }}>{event.ledgerSequence}</td>
               <td
                 style={{
                   padding: "0.75rem",
