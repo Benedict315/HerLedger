@@ -9,7 +9,7 @@ import {
   getStellarNetworkConfig,
   getContractConfig as getRawContractConfig,
   validateNetworkConsistency,
-} from "@herledger/config";
+} from "@herledger/config/server";
 import {
   registerCurrentNetworkAddresses,
   buildContractConfig,

@@ -23,6 +23,7 @@ const FIXTURE_ATTESTATIONS = [
     eventId: "e".repeat(64),
     attesterAddress: "GACTIVEATTESTERADDRESSAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
     claimHash: "c".repeat(64),
+    claimDescription: "Invoice verified against bank statement",
     status: "Active",
     ledgerSequence: 100,
   },
@@ -32,6 +33,7 @@ const FIXTURE_ATTESTATIONS = [
     eventId: "f".repeat(64),
     attesterAddress: "GREVOKEDATTESTERADDRESSAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
     claimHash: "d".repeat(64),
+    claimDescription: null,
     status: "Revoked",
     ledgerSequence: 90,
   },
@@ -73,6 +75,15 @@ test("renders both active and revoked attestations with correct status badges", 
   ).toBeVisible();
 });
 
+test("renders claimDescription when present, falling back to a truncated claimHash otherwise", async ({
+  page,
+}) => {
+  await page.goto("/dashboard/attestations");
+
+  await expect(page.getByText("Invoice verified against bank statement")).toBeVisible();
+  await expect(page.getByText(`${"d".repeat(16)}…`)).toBeVisible();
+});
+
 test("resolves an unknown attester address to a truncated display form", async ({ page }) => {
   await page.goto("/dashboard/attestations");
 
@@ -80,4 +91,45 @@ test("resolves an unknown attester address to a truncated display form", async (
   // truncated (first 6 chars + "…" + last 6 chars) rather than as a
   // 56-char raw address.
   await expect(page.getByText("GACTIV…AAAAAA")).toBeVisible();
+});
+
+test("attestations list links to the register-attester and create-attestation routes", async ({
+  page,
+}) => {
+  await page.goto("/dashboard/attestations");
+
+  await expect(page.getByRole("link", { name: "Register attester" })).toHaveAttribute(
+    "href",
+    "/dashboard/attestations/register"
+  );
+  await expect(page.getByRole("link", { name: "Create attestation" })).toHaveAttribute(
+    "href",
+    "/dashboard/attestations/create"
+  );
+});
+
+// ---------------------------------------------------------------------------
+// AttesterRegistrationForm / CreateAttestationForm both start by rendering
+// WalletConnect, which calls out to the (absent, in CI) Freighter browser
+// extension. No Freighter mock is set up here -- these specs only exercise
+// the pre-wallet-connection render, which is what's reachable without one.
+// The on-chain submission paths (registerAttester / createAttestation) are
+// exercised by packages/sdk's own contract-client tests, not here.
+// ---------------------------------------------------------------------------
+
+test("register-attester page explains the admin-wallet requirement before connecting", async ({
+  page,
+}) => {
+  await page.goto("/dashboard/attestations/register");
+
+  await expect(page.getByRole("heading", { name: "Register attester" })).toBeVisible();
+  await expect(page.getByText(/must be the contract admin/i)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Connect Freighter wallet" })).toBeVisible();
+});
+
+test("create-attestation page prompts for an attester wallet connection first", async ({ page }) => {
+  await page.goto("/dashboard/attestations/create");
+
+  await expect(page.getByRole("heading", { name: "Create attestation" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Connect Freighter wallet" })).toBeVisible();
 });
