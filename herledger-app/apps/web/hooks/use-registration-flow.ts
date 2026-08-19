@@ -3,7 +3,8 @@
 import { useCallback, useReducer } from "react";
 import { Account } from "@stellar/stellar-sdk";
 import { getPublicEnv } from "@herledger/config";
-import type { StellarNetworkConfig, ContractConfig } from "@herledger/sdk";
+import { registerCurrentNetworkAddresses, buildContractConfig } from "@herledger/sdk";
+import type { StellarNetworkConfig, ContractConfig, NetworkId } from "@herledger/sdk";
 import { useSdk } from "@/lib/sdk/sdk-context";
 
 // ---------------------------------------------------------------------------
@@ -116,13 +117,23 @@ function getStellarConfig(): StellarNetworkConfig {
   };
 }
 
-function getContractConfig(): ContractConfig {
+function getContractConfig(network: NetworkId): ContractConfig {
   const env = getPublicEnv();
-  return {
+  // HerLedger exposes one *_CONTRACT_ID per contract (no separate
+  // *_CONTRACT_ID_MAINNET var yet — see registry.ts), so the same addresses
+  // are used both to build the registry and to validate against it. This
+  // still buys us the format check (looksLikeContractAddress) and a clear
+  // ValidationError instead of a raw SDK failure if an env var is blank or
+  // malformed; it doesn't (yet) protect against a *wrong* address, since
+  // there's nothing independent to check it against until HerLedger has a
+  // second, hard-coded address source (e.g. once mainnet is deployed).
+  const addresses = {
     businessRegistryId: env.NEXT_PUBLIC_BUSINESS_REGISTRY_CONTRACT_ID,
     financialLedgerId: env.NEXT_PUBLIC_FINANCIAL_LEDGER_CONTRACT_ID,
     attestationRegistryId: env.NEXT_PUBLIC_ATTESTATION_REGISTRY_CONTRACT_ID,
   };
+  const registry = registerCurrentNetworkAddresses(network, addresses);
+  return buildContractConfig(registry, network, addresses);
 }
 
 function generateBusinessId(wallet: string, name: string): string {
@@ -179,7 +190,7 @@ export function useRegistrationFlow(): UseRegistrationFlowResult {
       const businessId = generateBusinessId(state.walletAddress, state.businessName);
       const metadataHash = hashMetadata(state.businessName);
       const stellarConfig = getStellarConfig();
-      const contractConfig = getContractConfig();
+      const contractConfig = getContractConfig(stellarConfig.network);
       const sourceAccount = new Account(state.walletAddress, "0");
 
       const result = await sdk.registerBusiness(

@@ -22,7 +22,7 @@ import { SdkContext, defaultSdkClient, type SdkClient } from "@/lib/sdk/sdk-cont
 export interface MockSdkProviderProps {
   children: ReactNode;
   /** Only the SDK functions relevant to the test need to be provided. */
-  overrides?: Partial<SdkClient>;
+  overrides?: Partial<SdkClient> | undefined;
 }
 
 export function MockSdkProvider({ children, overrides }: MockSdkProviderProps) {
