@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeAll, vi } from "vitest";
 import { StrKey } from "@stellar/stellar-sdk";
+import { describe, it, expect, beforeAll } from "vitest";
 
 vi.mock("server-only", () => ({}));
 

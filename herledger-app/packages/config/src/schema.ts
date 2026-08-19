@@ -60,5 +60,6 @@ export function formatZodError(error: z.ZodError) {
       Description: description,
     };
   });
+
   return issues;
 }
