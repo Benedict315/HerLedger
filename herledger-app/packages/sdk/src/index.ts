@@ -16,6 +16,13 @@ export type {
   HexString32,
 } from "./types/index.js";
 
+// Attester registry
+export {
+  KNOWN_ATTESTERS,
+  resolveAttesterName,
+} from "./attester-registry.js";
+export type { AttesterRegistry, AttesterRegistryEntry } from "./attester-registry.js";
+
 // Errors
 export {
   WalletError,
@@ -61,7 +68,11 @@ export {
   toContractAddress,
   buildContractConfig,
 } from "./contracts/registry.js";
-export type { ContractName, ContractAddressRegistry, ContractAddressRegistryEntry } from "./contracts/registry.js";
+export type {
+  ContractName,
+  ContractAddressRegistry,
+  ContractAddressRegistryEntry,
+} from "./contracts/registry.js";
 
 // Generated ABI types
 export * from "./contracts/__generated__/index.js";

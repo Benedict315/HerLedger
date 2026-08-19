@@ -1,4 +1,5 @@
 import { z } from "zod";
+
 import { createResponseSchema, type SuccessData } from "@/lib/api/envelope";
 
 export const RequestSchema = z.object({
@@ -10,12 +11,7 @@ export type ActivityRecentRequest = z.input<typeof RequestSchema>;
 export const FinancialEventSchema = z.object({
   id: z.string(),
   eventId: z.string(),
-  eventType: z.enum([
-    "PaymentReceived",
-    "PaymentSent",
-    "InvoiceSettled",
-    "CommitmentFulfilled",
-  ]),
+  eventType: z.enum(["PaymentReceived", "PaymentSent", "InvoiceSettled", "CommitmentFulfilled"]),
   assetAddress: z.string(),
   amount: z.string(), // i128 travels as a decimal string over JSON, see FinancialEvent (sdk) which uses bigint on-chain
   status: z.enum(["Pending", "Verified", "Disputed", "Revoked"]),

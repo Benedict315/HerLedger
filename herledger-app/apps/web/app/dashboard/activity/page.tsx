@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+
 import { ActivityList } from "@/components/activity/activity-list";
 
 export const metadata: Metadata = { title: "Financial Activity" };

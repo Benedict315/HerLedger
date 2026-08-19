@@ -107,8 +107,8 @@ export async function signTransactionWithFreighter(
   try {
     result = await signTransaction(transactionXdr, {
       networkPassphrase,
-      accountToSign,
-    } as any);
+      ...(accountToSign !== undefined && { address: accountToSign }),
+    });
   } catch (cause) {
     throw new WalletError("Failed to sign transaction with Freighter", cause);
   }

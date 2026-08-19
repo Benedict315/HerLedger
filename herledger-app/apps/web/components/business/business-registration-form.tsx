@@ -1,15 +1,17 @@
 "use client";
 
-import { useState } from "react";
-import { WalletConnect } from "@/components/wallet/wallet-connect";
-import { FormField } from "@/components/ui/form-field";
-import { SubmitButton } from "@/components/ui/submit-button";
-import { ErrorMessage } from "@/components/ui/error-message";
-import { StatusBadge } from "@/components/ui/status-badge";
-import { registerBusiness } from "@herledger/sdk";
 import { getPublicEnv } from "@herledger/config";
-import type { StellarNetworkConfig, ContractConfig } from "@herledger/sdk";
+import { registerBusiness } from "@herledger/sdk";
+import type { StellarNetworkConfig } from "@herledger/sdk";
 import { Account } from "@stellar/stellar-sdk";
+import { useState } from "react";
+
+import { ErrorMessage } from "@/components/ui/error-message";
+import { FormField } from "@/components/ui/form-field";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { SubmitButton } from "@/components/ui/submit-button";
+import { WalletConnect } from "@/components/wallet/wallet-connect";
+import { getContractConfig } from "@/lib/stellar/network";
 
 // ---------------------------------------------------------------------------
 // Business registration onboarding form
@@ -29,15 +31,6 @@ function getStellarConfig(): StellarNetworkConfig {
       env.NEXT_PUBLIC_STELLAR_NETWORK === "mainnet"
         ? "Public Global Stellar Network ; September 2015"
         : "Test SDF Network ; September 2015",
-  };
-}
-
-function getContractConfig(): ContractConfig {
-  const env = getPublicEnv();
-  return {
-    businessRegistryId: env.NEXT_PUBLIC_BUSINESS_REGISTRY_CONTRACT_ID,
-    financialLedgerId: env.NEXT_PUBLIC_FINANCIAL_LEDGER_CONTRACT_ID,
-    attestationRegistryId: env.NEXT_PUBLIC_ATTESTATION_REGISTRY_CONTRACT_ID,
   };
 }
 
@@ -142,9 +135,7 @@ export function BusinessRegistrationForm() {
         <div style={{ marginBottom: "1rem" }}>
           <StatusBadge status="Verified" />
         </div>
-        <p style={{ fontWeight: 500, marginBottom: "0.5rem" }}>
-          Business registered on Stellar
-        </p>
+        <p style={{ fontWeight: 500, marginBottom: "0.5rem" }}>Business registered on Stellar</p>
         <p style={{ color: "var(--muted)", fontSize: "0.875rem", marginBottom: "0.5rem" }}>
           Your registration has been confirmed on the Stellar network.
         </p>
@@ -178,9 +169,7 @@ export function BusinessRegistrationForm() {
 
           {step === "details" && walletAddress && (
             <form onSubmit={(e) => void handleSubmit(e)}>
-              <h3
-                style={{ fontSize: "0.9375rem", fontWeight: 500, marginBottom: "0.75rem" }}
-              >
+              <h3 style={{ fontSize: "0.9375rem", fontWeight: 500, marginBottom: "0.75rem" }}>
                 Step 2: Business details
               </h3>
               {error && <ErrorMessage message={error} />}
@@ -192,9 +181,7 @@ export function BusinessRegistrationForm() {
                 onChange={setBusinessName}
                 required
               />
-              <SubmitButton loading={false}>
-                Register on Stellar
-              </SubmitButton>
+              <SubmitButton loading={false}>Register on Stellar</SubmitButton>
             </form>
           )}
         </>
