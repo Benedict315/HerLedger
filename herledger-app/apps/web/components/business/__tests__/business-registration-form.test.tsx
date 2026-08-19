@@ -2,21 +2,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { BusinessRegistrationForm } from "../business-registration-form";
-import {
-  MockSdkProvider,
-  mockRegisterBusinessSuccess,
-  mockRegisterBusinessThrows,
-} from "@/tests/utils/mock-sdk-provider";
+
+// Must be imported (and vi.mock() registered) before "../business-registration-form"
+// — that component transitively imports "@herledger/config" via
+// useRegistrationFlow, and import order (not vi.mock's hoisting) determines
+// which runs first. See use-registration-flow.test.tsx for the full note.
+import { mockPublicEnv } from "@/tests/utils/mock-public-env";
+import { TEST_WALLET_ADDRESS } from "@/tests/utils/mock-wallet";
 
 vi.mock("@herledger/config", () => ({
-  getPublicEnv: () => ({
-    NEXT_PUBLIC_STELLAR_NETWORK: "testnet",
-    NEXT_PUBLIC_STELLAR_RPC_URL: "https://example-rpc.test",
-    NEXT_PUBLIC_BUSINESS_REGISTRY_CONTRACT_ID: "CBUSINESSREGISTRY",
-    NEXT_PUBLIC_FINANCIAL_LEDGER_CONTRACT_ID: "CFINANCIALLEDGER",
-    NEXT_PUBLIC_ATTESTATION_REGISTRY_CONTRACT_ID: "CATTESTATIONREGISTRY",
-  }),
+  getPublicEnv: mockPublicEnv,
 }));
 
 // WalletConnect itself talks to Freighter (browser extension) via @herledger/sdk.
@@ -24,11 +19,18 @@ vi.mock("@herledger/config", () => ({
 // that fires onConnected synchronously, matching its real contract.
 vi.mock("@/components/wallet/wallet-connect", () => ({
   WalletConnect: ({ onConnected }: { onConnected: (addr: string) => void }) => (
-    <button type="button" onClick={() => onConnected("GABC123TESTWALLET")}>
+    <button type="button" onClick={() => onConnected(TEST_WALLET_ADDRESS)}>
       Connect Freighter wallet
     </button>
   ),
 }));
+
+import { BusinessRegistrationForm } from "../business-registration-form";
+import {
+  MockSdkProvider,
+  mockRegisterBusinessSuccess,
+  mockRegisterBusinessThrows,
+} from "@/tests/utils/mock-sdk-provider";
 
 beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }));

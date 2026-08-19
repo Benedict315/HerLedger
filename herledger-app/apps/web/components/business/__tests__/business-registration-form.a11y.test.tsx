@@ -3,30 +3,42 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "vitest-axe";
-import { BusinessRegistrationForm } from "../business-registration-form";
-import { MockSdkProvider, mockRegisterBusinessThrows } from "@/tests/utils/mock-sdk-provider";
+
+// Must be imported (and vi.mock() registered) before "../business-registration-form"
+// — see use-registration-flow.test.tsx for why import order matters here.
+import { mockPublicEnv } from "@/tests/utils/mock-public-env";
+import { TEST_WALLET_ADDRESS } from "@/tests/utils/mock-wallet";
 
 vi.mock("@herledger/config", () => ({
-  getPublicEnv: () => ({
-    NEXT_PUBLIC_STELLAR_NETWORK: "testnet",
-    NEXT_PUBLIC_STELLAR_RPC_URL: "https://example-rpc.test",
-    NEXT_PUBLIC_BUSINESS_REGISTRY_CONTRACT_ID: "CBUSINESSREGISTRY",
-    NEXT_PUBLIC_FINANCIAL_LEDGER_CONTRACT_ID: "CFINANCIALLEDGER",
-    NEXT_PUBLIC_ATTESTATION_REGISTRY_CONTRACT_ID: "CATTESTATIONREGISTRY",
-  }),
+  getPublicEnv: mockPublicEnv,
 }));
 
 vi.mock("@/components/wallet/wallet-connect", () => ({
   WalletConnect: ({ onConnected }: { onConnected: (addr: string) => void }) => (
-    <button type="button" onClick={() => onConnected("GABC123TESTWALLET")}>
+    <button type="button" onClick={() => onConnected(TEST_WALLET_ADDRESS)}>
       Connect Freighter wallet
     </button>
   ),
 }));
 
+import { BusinessRegistrationForm } from "../business-registration-form";
+import { MockSdkProvider, mockRegisterBusinessThrows } from "@/tests/utils/mock-sdk-provider";
+
 beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }));
 });
+
+// jsdom has no canvas backend, which axe-core's color-contrast check needs
+// to sample rendered pixel colors — it degrades gracefully rather than
+// failing tests, but logs a noisy "HTMLCanvasElement.getContext not
+// implemented" error to the console on every run. This project renders
+// with CSS custom properties (var(--foreground), etc.) that jsdom can't
+// resolve to concrete colors anyway, so a real contrast reading isn't
+// meaningful here regardless — layout/rendering-dependent rules like this
+// belong in a real-browser check (e.g. Playwright + axe), not this unit
+// suite. Disable it here so the structural/ARIA assertions this file is
+// actually for aren't drowned out.
+const AXE_OPTIONS = { rules: { "color-contrast": { enabled: false } } };
 
 describe("BusinessRegistrationForm accessibility", () => {
   it("has no axe violations on the initial wallet step", async () => {
@@ -35,7 +47,7 @@ describe("BusinessRegistrationForm accessibility", () => {
         <BusinessRegistrationForm />
       </MockSdkProvider>
     );
-    expect(await axe(container)).toHaveNoViolations();
+    expect(await axe(container, AXE_OPTIONS)).toHaveNoViolations();
   });
 
   it("marks exactly the active step with aria-current='step'", async () => {
@@ -94,7 +106,7 @@ describe("BusinessRegistrationForm accessibility", () => {
     // now-unmounted submit button.
     expect(screen.getByRole("heading", { name: /registration failed/i })).toHaveFocus();
 
-    expect(await axe(container)).toHaveNoViolations();
+    expect(await axe(container, AXE_OPTIONS)).toHaveNoViolations();
   });
 
   it("has no axe violations on the confirmation step", async () => {
@@ -114,6 +126,6 @@ describe("BusinessRegistrationForm accessibility", () => {
     await user.click(screen.getByRole("button", { name: /register on stellar/i }));
 
     await screen.findByText(/business registered on stellar/i);
-    expect(await axe(container)).toHaveNoViolations();
+    expect(await axe(container, AXE_OPTIONS)).toHaveNoViolations();
   });
 });

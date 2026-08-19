@@ -2,6 +2,24 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
+
+// `mockPublicEnv` must be imported (and the vi.mock() below registered)
+// BEFORE `../use-registration-flow` is imported: vi.mock() calls are
+// hoisted above all imports, but import statements keep their own relative
+// order, and use-registration-flow.ts statically imports "@herledger/config"
+// itself. If that import ran first, the mock factory would try to read
+// `mockPublicEnv` before its own import finished initializing (a TDZ
+// ReferenceError) the moment use-registration-flow's module graph loads.
+import { mockPublicEnv } from "@/tests/utils/mock-public-env";
+import { TEST_WALLET_ADDRESS } from "@/tests/utils/mock-wallet";
+
+// `useRegistrationFlow` reads NEXT_PUBLIC_* env vars via getPublicEnv() and
+// posts to /api/business/register on success — stub both so this stays a
+// fast, network-free unit test of the hook's own state transitions.
+vi.mock("@herledger/config", () => ({
+  getPublicEnv: mockPublicEnv,
+}));
+
 import { useRegistrationFlow } from "../use-registration-flow";
 import {
   MockSdkProvider,
@@ -9,19 +27,6 @@ import {
   mockRegisterBusinessThrows,
   mockRegisterBusinessRejectedOnChain,
 } from "@/tests/utils/mock-sdk-provider";
-
-// `useRegistrationFlow` reads NEXT_PUBLIC_* env vars via getPublicEnv() and
-// posts to /api/business/register on success — stub both so this stays a
-// fast, network-free unit test of the hook's own state transitions.
-vi.mock("@herledger/config", () => ({
-  getPublicEnv: () => ({
-    NEXT_PUBLIC_STELLAR_NETWORK: "testnet",
-    NEXT_PUBLIC_STELLAR_RPC_URL: "https://example-rpc.test",
-    NEXT_PUBLIC_BUSINESS_REGISTRY_CONTRACT_ID: "CBUSINESSREGISTRY",
-    NEXT_PUBLIC_FINANCIAL_LEDGER_CONTRACT_ID: "CFINANCIALLEDGER",
-    NEXT_PUBLIC_ATTESTATION_REGISTRY_CONTRACT_ID: "CATTESTATIONREGISTRY",
-  }),
-}));
 
 function wrapper(overrides: Parameters<typeof MockSdkProvider>[0]["overrides"]) {
   return function Wrapper({ children }: { children: ReactNode }) {
@@ -44,7 +49,7 @@ describe("useRegistrationFlow: happy path", () => {
 
     expect(result.current.step).toBe("wallet");
 
-    act(() => result.current.connectWallet("GABC123"));
+    act(() => result.current.connectWallet(TEST_WALLET_ADDRESS));
     expect(result.current.step).toBe("details");
 
     act(() => result.current.setBusinessName("Acme Traders"));
@@ -65,7 +70,7 @@ describe("useRegistrationFlow: happy path", () => {
       wrapper: wrapper({ registerBusiness: mockRegisterBusinessSuccess("tx-2") }),
     });
 
-    act(() => result.current.connectWallet("GABC123"));
+    act(() => result.current.connectWallet(TEST_WALLET_ADDRESS));
     act(() => result.current.setBusinessName("Acme"));
     await act(async () => {
       await result.current.submit();
@@ -84,7 +89,7 @@ describe("useRegistrationFlow: error paths", () => {
       wrapper: wrapper({ registerBusiness: mockRegisterBusinessThrows("network down") }),
     });
 
-    act(() => result.current.connectWallet("GABC123"));
+    act(() => result.current.connectWallet(TEST_WALLET_ADDRESS));
     act(() => result.current.setBusinessName("Acme"));
     await act(async () => {
       await result.current.submit();
@@ -99,7 +104,7 @@ describe("useRegistrationFlow: error paths", () => {
       wrapper: wrapper({ registerBusiness: mockRegisterBusinessRejectedOnChain() }),
     });
 
-    act(() => result.current.connectWallet("GABC123"));
+    act(() => result.current.connectWallet(TEST_WALLET_ADDRESS));
     act(() => result.current.setBusinessName("Acme"));
     await act(async () => {
       await result.current.submit();
@@ -114,7 +119,7 @@ describe("useRegistrationFlow: error paths", () => {
       wrapper: wrapper({ registerBusiness: mockRegisterBusinessThrows() }),
     });
 
-    act(() => result.current.connectWallet("GABC123"));
+    act(() => result.current.connectWallet(TEST_WALLET_ADDRESS));
     act(() => result.current.setBusinessName("Acme"));
     await act(async () => {
       await result.current.submit();
@@ -124,7 +129,7 @@ describe("useRegistrationFlow: error paths", () => {
     act(() => result.current.retry());
     expect(result.current.step).toBe("details");
     expect(result.current.error).toBeNull();
-    expect(result.current.walletAddress).toBe("GABC123");
+    expect(result.current.walletAddress).toBe(TEST_WALLET_ADDRESS);
   });
 
   it("submit() is a no-op when called without a connected wallet", async () => {
