@@ -108,6 +108,10 @@ jobs:
         run: pnpm build
         working-directory: herledger-app
 
+      - name: E2E tests
+        run: pnpm test:e2e
+        working-directory: herledger-app
+
   abi-check:
     name: Contract ABI codegen diff
     runs-on: ubuntu-latest

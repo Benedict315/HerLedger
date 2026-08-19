@@ -66,6 +66,21 @@ docs(app): improve local setup instructions
 - Type checking: `pnpm typecheck`
 - Formatting: `pnpm format`
 
+### E2E Testing Infrastructure
+
+End-to-End tests are written using [Playwright](https://playwright.dev) and are located in `apps/web/e2e/`.
+
+- **`fixtures/db.ts`**: Provides a database fixture (`db`) and seeding helpers (`seedFinancialEvent`). It automatically clears the relevant tables before each test.
+- **`fixtures/auth.ts`**: Provides a `loggedInPage` fixture which seeds a Better Auth user/session and injects the session cookie into the browser context.
+- **`helpers/mock-wallet.ts`**: Use `mockFreighter(page, options)` to stub `window.freighter` and bypass the actual extension. It also intercepts Soroban RPC calls (`page.route`) to mock transaction submissions on the client side.
+- **`page-objects/`**: Reusable classes that wrap locators and common actions for specific pages (e.g., `DashboardPage`, `ActivityPage`).
+
+**Running E2E Tests:**
+```sh
+# Requires a running dev server (the Playwright webServer config will start one if needed)
+pnpm test:e2e
+```
+
 ## Pull request checklist
 
 - [ ] TypeScript strict mode — no new `any`
