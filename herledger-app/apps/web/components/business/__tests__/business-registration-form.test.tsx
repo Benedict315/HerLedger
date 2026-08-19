@@ -2,27 +2,49 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useEffect } from "react";
 
 // Must be imported (and vi.mock() registered) before "../business-registration-form"
 // — that component transitively imports "@herledger/config" via
 // useRegistrationFlow, and import order (not vi.mock's hoisting) determines
 // which runs first. See use-registration-flow.test.tsx for the full note.
 import { mockPublicEnv } from "@/tests/utils/mock-public-env";
-import { TEST_WALLET_ADDRESS } from "@/tests/utils/mock-wallet";
+import { TEST_WALLET_ADDRESS, mockWalletConnectionState } from "@/tests/utils/mock-wallet";
 
 vi.mock("@herledger/config", () => ({
   getPublicEnv: mockPublicEnv,
 }));
 
 // WalletConnect itself talks to Freighter (browser extension) via @herledger/sdk.
-// The wizard test doesn't need real wallet UI — stub it to a single button
-// that fires onConnected synchronously, matching its real contract.
+// The wizard test doesn't need real wallet UI — stub it, but mirror the real
+// component's "reconnect silently on mount if already connected" behavior
+// (see mock-wallet.ts) rather than always showing the connect button,
+// since BusinessRegistrationForm remounts this on every error -> retry.
 vi.mock("@/components/wallet/wallet-connect", () => ({
-  WalletConnect: ({ onConnected }: { onConnected: (addr: string) => void }) => (
-    <button type="button" onClick={() => onConnected(TEST_WALLET_ADDRESS)}>
-      Connect Freighter wallet
-    </button>
-  ),
+  WalletConnect: ({ onConnected }: { onConnected: (addr: string) => void }) => {
+    useEffect(() => {
+      if (mockWalletConnectionState.connected) {
+        onConnected(TEST_WALLET_ADDRESS);
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    if (mockWalletConnectionState.connected) {
+      return <p>Connected wallet: {TEST_WALLET_ADDRESS}</p>;
+    }
+
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          mockWalletConnectionState.connected = true;
+          onConnected(TEST_WALLET_ADDRESS);
+        }}
+      >
+        Connect Freighter wallet
+      </button>
+    );
+  },
 }));
 
 import { BusinessRegistrationForm } from "../business-registration-form";
@@ -31,9 +53,11 @@ import {
   mockRegisterBusinessSuccess,
   mockRegisterBusinessThrows,
 } from "@/tests/utils/mock-sdk-provider";
+import { resetMockWalletConnectionState } from "@/tests/utils/mock-wallet";
 
 beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }));
+  resetMockWalletConnectionState();
 });
 
 function renderForm(overrides: Parameters<typeof MockSdkProvider>[0]["overrides"]) {
