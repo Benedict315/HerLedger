@@ -1,11 +1,15 @@
 import { headers } from "next/headers";
 import { NextRequest } from "next/server";
 
+
 import { typedJson } from "@/lib/api/route-handler";
 import { auth } from "@/lib/auth/server";
 import { getDbClient } from "@herledger/db";
 
-import { RequestSchema, type AttestationsResponse } from "./schema";
+import { RequestSchema } from "./schema";
+import type { AttestationsResponse } from "./schema";
+
+const prisma = getPrismaClient();
 
 export async function GET(req: NextRequest) {
   const session = await auth.api.getSession({ headers: await headers() });

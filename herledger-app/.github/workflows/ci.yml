@@ -108,6 +108,17 @@ jobs:
         run: pnpm build
         working-directory: herledger-app
 
+      - name: Build Storybook
+        run: pnpm --filter web build-storybook
+        working-directory: herledger-app
+
+      - name: Upload Storybook Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: storybook-static
+          path: herledger-app/apps/web/storybook-static
+          retention-days: 7
+
   abi-check:
     name: Contract ABI codegen diff
     runs-on: ubuntu-latest

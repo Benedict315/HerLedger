@@ -5,7 +5,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["**/*.test.ts"],
+    include: ["**/*.test.ts", "**/*.test.tsx"],
     typecheck: {
       enabled: true,
       include: ["**/*.type-test.ts"],
@@ -16,7 +16,6 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "."),
       "server-only": "node:events",
-      "@herledger/db": path.resolve(__dirname, "../../packages/db/src/index.ts"),
     },
   },
 });

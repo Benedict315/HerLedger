@@ -39,7 +39,7 @@ describe("Environment Schema", () => {
       if (!result.success) {
         const issues = formatZodError(result.error);
         expect(issues.length).toBeGreaterThan(5); // several required fields
-        expect(issues.some(i => i.Variable === "DATABASE_URL")).toBe(true);
+        expect(issues.some((i) => i.Variable === "DATABASE_URL")).toBe(true);
       }
     });
 
