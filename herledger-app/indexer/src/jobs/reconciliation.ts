@@ -3,7 +3,7 @@ import { getPrismaClient } from "../db/client.js";
 import {
   getStellarNetworkConfig,
   getContractConfig as getRawContractConfig,
-} from "@herledger/config";
+} from "@herledger/config/server";
 import {
   registerCurrentNetworkAddresses,
   buildContractConfig,
