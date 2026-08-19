@@ -8,7 +8,7 @@ import {
   registerCurrentNetworkAddresses,
   buildContractConfig,
   getFinancialEvent,
-} from "@herledger/sdk";
+} from "@herledger/sdk/contracts";
 
 // ---------------------------------------------------------------------------
 // Nightly reconciliation job.

@@ -13,6 +13,15 @@ let _configuredUrl: string | null = null;
 /**
  * Returns a singleton Soroban RPC Server instance for the given config.
  * Re-creates the instance only if the RPC URL changes.
+ *
+ * @param config - The network config whose `rpcUrl` the server targets.
+ * @returns A shared `StellarRpc.Server` instance.
+ * @throws {RpcError} if the server cannot be initialized.
+ *
+ * @example
+ * ```ts
+ * const server = getSorobanRpcServer(config);
+ * ```
  */
 export function getSorobanRpcServer(config: StellarNetworkConfig): StellarRpc.Server {
   if (_server && _configuredUrl === config.rpcUrl) {
@@ -31,6 +40,15 @@ export function getSorobanRpcServer(config: StellarNetworkConfig): StellarRpc.Se
 
 /**
  * Fetch the current ledger sequence from the RPC server.
+ *
+ * @param config - The network config to query.
+ * @returns The latest ledger sequence number.
+ * @throws {RpcError} if the latest ledger cannot be fetched.
+ *
+ * @example
+ * ```ts
+ * const ledger = await getLatestLedger(config);
+ * ```
  */
 export async function getLatestLedger(config: StellarNetworkConfig): Promise<number> {
   const server = getSorobanRpcServer(config);

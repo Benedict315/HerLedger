@@ -11,7 +11,7 @@ import {
   getStellarNetworkConfig,
   getContractConfig as getRawContractConfig,
 } from "@herledger/config";
-import { registerCurrentNetworkAddresses, buildContractConfig } from "@herledger/sdk";
+import { registerCurrentNetworkAddresses, buildContractConfig } from "@herledger/sdk/contracts";
 
 // ---------------------------------------------------------------------------
 // Admin: dead-letter replay

@@ -1,6 +1,6 @@
 "use client";
 
-import { isValidAttestation, resolveAttesterName } from "@herledger/sdk";
+import { isValidAttestation, resolveAttesterName } from "@herledger/sdk/contracts";
 import { useEffect, useState } from "react";
 
 import type { AttestationDto } from "@/app/api/attestations/schema";

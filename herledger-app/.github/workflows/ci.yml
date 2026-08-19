@@ -108,6 +108,10 @@ jobs:
         run: pnpm build
         working-directory: herledger-app
 
+      - name: Build SDK API docs
+        run: pnpm --filter @herledger/sdk docs
+        working-directory: herledger-app
+
   abi-check:
     name: Contract ABI codegen diff
     runs-on: ubuntu-latest

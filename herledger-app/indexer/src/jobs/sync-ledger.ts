@@ -10,11 +10,8 @@ import {
   getContractConfig as getRawContractConfig,
   validateNetworkConsistency,
 } from "@herledger/config";
-import {
-  registerCurrentNetworkAddresses,
-  buildContractConfig,
-  type ContractConfig,
-} from "@herledger/sdk";
+import { registerCurrentNetworkAddresses, buildContractConfig } from "@herledger/sdk/contracts";
+import type { ContractConfig } from "@herledger/sdk/types";
 import {
   resetCycleMetrics,
   recordIndexed,

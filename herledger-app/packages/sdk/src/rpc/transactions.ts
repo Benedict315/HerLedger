@@ -7,8 +7,20 @@ const POLL_INTERVAL_MS = 2000;
 const MAX_POLLS = 30;
 
 /**
- * Simulate a transaction and return the prepared transaction with
- * the resource footprint and fee populated from the simulation result.
+ * Simulate a transaction and return the prepared transaction with the
+ * resource footprint and fee populated from the simulation result.
+ *
+ * @param tx - The unsigned transaction to simulate.
+ * @param config - Stellar network configuration.
+ * @returns A `Transaction` assembled from the simulation result, ready to sign.
+ * @throws {RpcError} if simulation throws, or {ContractError} if the RPC
+ *   returns a simulation error result (e.g. a contract invocation failed).
+ *
+ * @example
+ * ```ts
+ * const prepared = await simulateAndPrepare(tx, config);
+ * const signed = await signTransactionWithFreighter(prepared.toXDR(), config.networkPassphrase);
+ * ```
  */
 export async function simulateAndPrepare(
   tx: Transaction,
@@ -32,6 +44,18 @@ export async function simulateAndPrepare(
 
 /**
  * Submit a signed transaction XDR and poll until confirmed or failed.
+ *
+ * @param signedXdr - Base64-encoded signed transaction envelope.
+ * @param config - Stellar network configuration.
+ * @returns The confirmed transaction hash, success flag, and ledger sequence.
+ * @throws {ContractError} when the transaction is rejected or fails on-chain.
+ * @throws {RpcError} if the transaction does not confirm within the polling
+ *   window or a poll fails.
+ *
+ * @example
+ * ```ts
+ * const result = await submitAndWait(signedXdr, config);
+ * ```
  */
 export async function submitAndWait(
   signedXdr: string,

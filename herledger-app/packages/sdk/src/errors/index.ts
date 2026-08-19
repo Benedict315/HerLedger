@@ -2,6 +2,17 @@
 // Typed application errors
 // ---------------------------------------------------------------------------
 
+/**
+ * Thrown by the Freighter wallet adapter when the extension is unavailable,
+ * access is denied, or signing fails.
+ *
+ * @example
+ * ```ts
+ * try { await connectWallet(); } catch (err) {
+ *   if (err instanceof WalletError) console.error(err.message);
+ * }
+ * ```
+ */
 export class WalletError extends Error {
   readonly kind = "WalletError" as const;
   constructor(
@@ -13,6 +24,17 @@ export class WalletError extends Error {
   }
 }
 
+/**
+ * Thrown when a Soroban RPC call fails, times out, or returns an unexpected
+ * result.
+ *
+ * @example
+ * ```ts
+ * try { await getLatestLedger(config); } catch (err) {
+ *   if (err instanceof RpcError) console.error(err.message);
+ * }
+ * ```
+ */
 export class RpcError extends Error {
   readonly kind = "RpcError" as const;
   constructor(
@@ -24,6 +46,17 @@ export class RpcError extends Error {
   }
 }
 
+/**
+ * Thrown when a contract call is rejected on-chain or a decoded value does
+ * not match the expected contract shape.
+ *
+ * @example
+ * ```ts
+ * try { await getBusiness(id, config, contracts); } catch (err) {
+ *   if (err instanceof ContractError) console.error(err.contractCode);
+ * }
+ * ```
+ */
 export class ContractError extends Error {
   readonly kind = "ContractError" as const;
   constructor(
@@ -36,6 +69,16 @@ export class ContractError extends Error {
   }
 }
 
+/**
+ * Thrown when an input value fails validation (e.g. a malformed or
+ * mismatched contract address).
+ *
+ * @example
+ * ```ts
+ * try { toContractAddress("BusinessRegistry", bad, "testnet", registry); }
+ * catch (err) { if (err instanceof ValidationError) console.error(err.message); }
+ * ```
+ */
 export class ValidationError extends Error {
   readonly kind = "ValidationError" as const;
   constructor(
@@ -47,6 +90,15 @@ export class ValidationError extends Error {
   }
 }
 
+/**
+ * Thrown for application-authentication failures. Note that wallet signing
+ * is separate from application auth — this class is reserved for the latter.
+ *
+ * @example
+ * ```ts
+ * if (!session) throw new AuthenticationError("Not signed in");
+ * ```
+ */
 export class AuthenticationError extends Error {
   readonly kind = "AuthenticationError" as const;
   constructor(
@@ -59,8 +111,4 @@ export class AuthenticationError extends Error {
 }
 
 export type AppError =
-  | WalletError
-  | RpcError
-  | ContractError
-  | ValidationError
-  | AuthenticationError;
+  WalletError | RpcError | ContractError | ValidationError | AuthenticationError;

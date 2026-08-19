@@ -37,7 +37,7 @@ vi.mock("@herledger/config", () => ({
   }),
 }));
 
-vi.mock("@herledger/sdk", () => ({
+vi.mock("@herledger/sdk/contracts", () => ({
   registerCurrentNetworkAddresses: (_network: string, addrs: unknown) => addrs,
   buildContractConfig: (_registry: unknown, _network: string, addrs: unknown) => addrs,
 }));

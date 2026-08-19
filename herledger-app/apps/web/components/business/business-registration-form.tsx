@@ -1,8 +1,8 @@
 "use client";
 
 import { getPublicEnv } from "@herledger/config";
-import { registerBusiness } from "@herledger/sdk";
-import type { StellarNetworkConfig } from "@herledger/sdk";
+import { registerBusiness } from "@herledger/sdk/contracts";
+import type { StellarNetworkConfig } from "@herledger/sdk/types";
 import { Account } from "@stellar/stellar-sdk";
 import { useState } from "react";
 

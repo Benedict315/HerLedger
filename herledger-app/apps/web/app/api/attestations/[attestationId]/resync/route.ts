@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAttestation } from "@herledger/sdk";
+import { getAttestation } from "@herledger/sdk/contracts";
 import { auth } from "@/lib/auth/server";
 import { headers } from "next/headers";
 import { getServerStellarConfig, getServerContractConfig } from "@/lib/stellar/server-config";
