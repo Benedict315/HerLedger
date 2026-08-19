@@ -26,12 +26,12 @@ export const serverEnvSchema = z.object({
   ...contractIdsShape,
 });
 
-const withNextPublic = <T extends z.ZodRawShape>(shape: T) => {
-  const publicShape: Record<string, z.ZodTypeAny> = {};
-  for (const [key, schema] of Object.entries(shape)) {
-    publicShape[`NEXT_PUBLIC_${key}`] = schema;
-  }
-  return publicShape;
+type WithNextPublic<T> = { [K in keyof T as `NEXT_PUBLIC_${string & K}`]: T[K] };
+
+const withNextPublic = <T extends z.ZodRawShape>(shape: T): WithNextPublic<T> => {
+  return Object.fromEntries(
+    Object.entries(shape).map(([key, schema]) => [`NEXT_PUBLIC_${key}`, schema])
+  ) as WithNextPublic<T>;
 };
 
 export const publicEnvSchema = z.object({
@@ -48,8 +48,10 @@ export function formatZodError(error: z.ZodError) {
     const path = i.path.join(".");
     let description = "No description available";
     
-    const serverField = (serverEnvSchema.shape as any)[path];
-    const publicField = (publicEnvSchema.shape as any)[path];
+    const serverShape = serverEnvSchema.shape as Record<string, z.ZodTypeAny | undefined>;
+    const publicShape = publicEnvSchema.shape as Record<string, z.ZodTypeAny | undefined>;
+    const serverField = serverShape[path];
+    const publicField = publicShape[path];
     
     if (serverField?.description) description = serverField.description;
     else if (publicField?.description) description = publicField.description;
