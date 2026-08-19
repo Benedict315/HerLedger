@@ -28,6 +28,7 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.10.2",
     "@playwright/test": "1.51.1",
     "@types/node": "24.0.10",
     "@types/pg": "8.23.1",
