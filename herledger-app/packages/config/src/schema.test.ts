@@ -1,15 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { serverEnvSchema, publicEnvSchema, formatZodError } from "./schema.js";
 
-const VALID_STELLAR_ADDRESS = "GABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHI"; // 56 chars but actually needs to be a real strkey.
-// Let's use a real strkey since Zod uses StrKey.isValidContract.
-const VALID_CONTRACT = "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"; 
-// StrKey.isValidContract requires a 'C' prefix and 56 chars total, wait, 'C' followed by 55 base32 chars. Let's just use a valid mock.
-const VALID_CONTRACT_REAL = "CCQ5X5M5XVQ7S7W7Y7Z7274767I7K7M7O7Q7S7U7W7Y7Z7274767I7K7M7O7Q"; // 56 chars. Wait, strkey validation is strict.
-// It's easier to use vitest to mock stellar-sdk if we don't have a valid one, or just provide one.
-// Let's provide a valid strkey for testing:
-const VALID_CONTRACT_MOCK = "CA7JDAO9SGZ8EZEQHTJEXNXB7N6Q9O7N8Y9O7N8Y9O7N8Y9O7N8Y9O7N"; 
-// Let's just mock StrKey.isValidContract
 vi.mock("@stellar/stellar-sdk", () => {
   return {
     StrKey: {
@@ -46,18 +37,19 @@ describe("Environment Schema", () => {
       if (!result.success) {
         const issues = formatZodError(result.error);
         expect(issues.length).toBeGreaterThan(5); // several required fields
-        expect(issues.some(i => i.Variable === "DATABASE_URL")).toBe(true);
+        expect(issues.some((i) => i.Variable === "DATABASE_URL")).toBe(true);
       }
     });
 
     it("should fail when partially missing", () => {
-      const { APP_URL, ...partial } = VALID_SERVER_ENV;
+      const partial: Record<string, string> = { ...VALID_SERVER_ENV };
+      delete partial["APP_URL"];
       const result = serverEnvSchema.safeParse(partial);
       expect(result.success).toBe(false);
       if (!result.success) {
         const issues = formatZodError(result.error);
         expect(issues.length).toBe(1);
-        expect(issues[0].Variable).toBe("APP_URL");
+        expect(issues[0]?.Variable).toBe("APP_URL");
       }
     });
   });
@@ -77,7 +69,8 @@ describe("Environment Schema", () => {
     });
 
     it("should fail when contract ID is missing", () => {
-      const { NEXT_PUBLIC_BUSINESS_REGISTRY_CONTRACT_ID, ...partial } = VALID_PUBLIC_ENV;
+      const partial: Record<string, string> = { ...VALID_PUBLIC_ENV };
+      delete partial["NEXT_PUBLIC_BUSINESS_REGISTRY_CONTRACT_ID"];
       const result = publicEnvSchema.safeParse(partial);
       expect(result.success).toBe(false);
     });

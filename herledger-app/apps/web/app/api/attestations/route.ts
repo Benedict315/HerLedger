@@ -1,11 +1,12 @@
 import { headers } from "next/headers";
 import { NextRequest } from "next/server";
-import { RequestSchema } from "./schema";
+
 
 import { typedJson } from "@/lib/api/route-handler";
 import { auth } from "@/lib/auth/server";
 import { getPrismaClient } from "@/lib/db/client";
 
+import { RequestSchema } from "./schema";
 import type { AttestationsResponse } from "./schema";
 
 const prisma = getPrismaClient();
