@@ -231,10 +231,10 @@ export function BusinessProfile() {
                 padding: "0.5rem 1rem",
                 fontSize: "0.875rem",
                 fontWeight: 500,
-                border: "1px solid var(--error, #ef4444)",
+                border: "1px solid var(--color-error-text)",
                 borderRadius: "var(--radius)",
                 backgroundColor: "transparent",
-                color: "var(--error, #ef4444)",
+                color: "var(--color-error-text)",
                 cursor: "pointer",
               }}
             >
@@ -289,9 +289,9 @@ export function BusinessProfile() {
             <label style={{ fontSize: "0.875rem", fontWeight: 500, color: "var(--muted)" }}>
               Status
             </label>
-            <p style={{ 
+            <p style={{
               marginTop: "0.25rem",
-              color: business.active ? "var(--success, #22c55e)" : "var(--error, #ef4444)"
+              color: business.active ? "var(--color-success-text)" : "var(--color-error-text)"
             }}>
               {business.active ? "Active" : "Inactive"}
             </p>
