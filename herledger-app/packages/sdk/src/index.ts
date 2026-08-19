@@ -35,7 +35,15 @@ export type { AppError } from "./errors/index.js";
 
 // RPC
 export { getSorobanRpcServer, getLatestLedger } from "./rpc/client.js";
-export { simulateAndPrepare, submitAndWait } from "./rpc/transactions.js";
+export {
+  simulateAndPrepare,
+  submitAndWait,
+  submitWithFeeBump,
+} from "./rpc/transactions.js";
+export type {
+  SubmitAndWaitOptions,
+  RetryInfo,
+} from "./rpc/transactions.js";
 
 // Wallet
 export {
