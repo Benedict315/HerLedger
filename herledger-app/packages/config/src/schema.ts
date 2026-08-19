@@ -22,6 +22,14 @@ export const serverEnvSchema = z.object({
   ATTESTATION_REGISTRY_CONTRACT_ID: stellarContractId.describe("Contract ID for the Attestation Registry"),
 });
 
+type WithNextPublic<T> = { [K in keyof T as `NEXT_PUBLIC_${string & K}`]: T[K] };
+
+const withNextPublic = <T extends z.ZodRawShape>(shape: T): WithNextPublic<T> => {
+  return Object.fromEntries(
+    Object.entries(shape).map(([key, schema]) => [`NEXT_PUBLIC_${key}`, schema])
+  ) as WithNextPublic<T>;
+};
+
 export const publicEnvSchema = z.object({
   NEXT_PUBLIC_STELLAR_NETWORK: z.enum(["testnet", "mainnet"]).describe("Stellar network selection for the browser"),
   NEXT_PUBLIC_STELLAR_RPC_URL: z.string().url().describe("Soroban RPC endpoint URL for the browser"),
@@ -38,8 +46,10 @@ export function formatZodError(error: z.ZodError) {
     const path = i.path.join(".");
     let description = "No description available";
     
-    const serverField = (serverEnvSchema.shape as Record<string, z.ZodTypeAny>)[path];
-    const publicField = (publicEnvSchema.shape as Record<string, z.ZodTypeAny>)[path];
+    const serverShape = serverEnvSchema.shape as Record<string, z.ZodTypeAny | undefined>;
+    const publicShape = publicEnvSchema.shape as Record<string, z.ZodTypeAny | undefined>;
+    const serverField = serverShape[path];
+    const publicField = publicShape[path];
     
     if (serverField?.description) description = serverField.description;
     else if (publicField?.description) description = publicField.description;

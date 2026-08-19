@@ -157,6 +157,12 @@ export function AttestationList() {
           </div>
           <dl style={{ fontSize: "0.875rem", color: "var(--muted)", margin: 0 }}>
             <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.25rem" }}>
+              <dt style={{ fontWeight: 500, minWidth: "80px" }}>Claim</dt>
+              <dd style={att.claimDescription ? undefined : { fontFamily: "monospace" }}>
+                {att.claimDescription ?? `${att.claimHash.slice(0, 16)}…`}
+              </dd>
+            </div>
+            <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.25rem" }}>
               <dt style={{ fontWeight: 500, minWidth: "80px" }}>Attester</dt>
               <dd style={{ fontFamily: "monospace", wordBreak: "break-all" }}>
                 {resolveAttesterName(att.attesterAddress)}

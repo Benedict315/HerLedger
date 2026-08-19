@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import { serverEnvSchema, publicEnvSchema, formatZodError } from "./schema.js";
 
+// Mock StrKey.isValidContract so contract IDs below only need to look like a
+// 56-char "C..." strkey, not be a cryptographically valid one.
 vi.mock("@stellar/stellar-sdk", () => {
   return {
     StrKey: {
@@ -42,8 +44,7 @@ describe("Environment Schema", () => {
     });
 
     it("should fail when partially missing", () => {
-      const partial: Record<string, string> = { ...VALID_SERVER_ENV };
-      delete partial["APP_URL"];
+      const { APP_URL: _APP_URL, ...partial } = VALID_SERVER_ENV;
       const result = serverEnvSchema.safeParse(partial);
       expect(result.success).toBe(false);
       if (!result.success) {
@@ -69,8 +70,7 @@ describe("Environment Schema", () => {
     });
 
     it("should fail when contract ID is missing", () => {
-      const partial: Record<string, string> = { ...VALID_PUBLIC_ENV };
-      delete partial["NEXT_PUBLIC_BUSINESS_REGISTRY_CONTRACT_ID"];
+      const { NEXT_PUBLIC_BUSINESS_REGISTRY_CONTRACT_ID: _omitted, ...partial } = VALID_PUBLIC_ENV;
       const result = publicEnvSchema.safeParse(partial);
       expect(result.success).toBe(false);
     });
