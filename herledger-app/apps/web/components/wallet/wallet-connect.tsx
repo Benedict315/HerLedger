@@ -1,44 +1,41 @@
 "use client";
 
-import { connectWallet, getConnectedAddress, WalletError } from "@herledger/sdk";
-import { useState, useEffect, useRef } from "react";
+import { connectWallet, WalletError } from "@herledger/sdk";
+import { useEffect, useRef, useState } from "react";
 
 import { ErrorMessage } from "@/components/ui/error-message";
+import { useWallet } from "@/components/wallet/wallet-provider";
 
 interface WalletConnectProps {
   onConnected: (publicKey: string) => void;
 }
 
 export function WalletConnect({ onConnected }: WalletConnectProps) {
-  const [address, setAddress] = useState<string | null>(null);
+  const { connectedAddress, isChecking, connect, clearWalletState } = useWallet();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [checking, setChecking] = useState(true);
 
-  // Effect must run only once on mount; capture the latest `onConnected` via
-  // a ref instead of a dependency so it can't fire from a stale closure.
+  // Capture the latest `onConnected` via a ref so the effect below can't fire
+  // from a stale closure when the parent re-renders.
   const onConnectedRef = useRef(onConnected);
   useEffect(() => {
     onConnectedRef.current = onConnected;
   });
 
+  // Notify the parent when the context reports a connected address (on mount
+  // or after the user connects).
   useEffect(() => {
-    void (async () => {
-      const existing = await getConnectedAddress();
-      if (existing) {
-        setAddress(existing);
-        onConnectedRef.current(existing);
-      }
-      setChecking(false);
-    })();
-  }, []);
+    if (connectedAddress) {
+      onConnectedRef.current(connectedAddress);
+    }
+  }, [connectedAddress]);
 
   async function handleConnect() {
     setError(null);
     setLoading(true);
     try {
       const { publicKey } = await connectWallet();
-      setAddress(publicKey);
+      connect(publicKey);
       onConnected(publicKey);
     } catch (err) {
       if (err instanceof WalletError) {
@@ -52,13 +49,13 @@ export function WalletConnect({ onConnected }: WalletConnectProps) {
   }
 
   function handleDisconnect() {
-    setAddress(null);
+    clearWalletState();
     setError(null);
   }
 
-  if (checking) return null;
+  if (isChecking) return null;
 
-  if (address) {
+  if (connectedAddress) {
     return (
       <div
         style={{
@@ -79,7 +76,7 @@ export function WalletConnect({ onConnected }: WalletConnectProps) {
           }}
           aria-label="Connected Stellar address"
         >
-          {address}
+          {connectedAddress}
         </p>
         <button
           onClick={handleDisconnect}

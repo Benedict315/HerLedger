@@ -11,6 +11,7 @@ import { FormField } from "@/components/ui/form-field";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { WalletConnect } from "@/components/wallet/wallet-connect";
+import { useWallet } from "@/components/wallet/wallet-provider";
 import { getContractConfig } from "@/lib/stellar/network";
 
 // ---------------------------------------------------------------------------
@@ -63,15 +64,10 @@ function hashMetadata(name: string): string {
 
 export function BusinessRegistrationForm() {
   const [step, setStep] = useState<Step>("wallet");
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
-
-  function handleWalletConnected(publicKey: string) {
-    setWalletAddress(publicKey);
-    setStep("details");
-  }
+  const { connectedAddress: walletAddress } = useWallet();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -164,7 +160,7 @@ export function BusinessRegistrationForm() {
             <h3 style={{ fontSize: "0.9375rem", fontWeight: 500, marginBottom: "0.75rem" }}>
               Step 1: Connect your Stellar wallet
             </h3>
-            <WalletConnect onConnected={handleWalletConnected} />
+            <WalletConnect onConnected={() => setStep("details")} />
           </div>
 
           {step === "details" && walletAddress && (
