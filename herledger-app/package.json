@@ -30,9 +30,13 @@
     "typescript": "7.0.2",
     "typescript-eslint": "8.67.0",
     "typescript-eslint-ts6-compat": "npm:typescript@5.9.3"
+
   },
   "engines": {
     "node": ">=20.9.0",
     "pnpm": ">=9"
+  },
+  "dependencies": {
+    "@prisma/client": "7.9.1"
   }
 }

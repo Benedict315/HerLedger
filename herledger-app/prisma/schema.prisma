@@ -16,12 +16,16 @@ datasource db {
 
 model User {
   id            String    @id @default(cuid())
+  /// @PII
   email         String    @unique
   emailVerified Boolean   @default(false)
+  /// @PII
   name          String?
+  /// @PII
   image         String?
   createdAt     DateTime  @default(now()) @db.Timestamptz
   updatedAt     DateTime  @updatedAt @db.Timestamptz
+  deletedAt     DateTime? @db.Timestamptz
 
   sessions      Session[]
   accounts      Account[]
@@ -36,6 +40,7 @@ model Session {
   userId    String
   token     String   @unique
   expiresAt DateTime @db.Timestamptz
+  /// @PII
   ipAddress String?
   userAgent String?
   createdAt DateTime @default(now()) @db.Timestamptz
@@ -91,7 +96,9 @@ model BusinessProfile {
   /// On-chain business ID (hex-encoded BytesN<32>)
   businessId    String   @unique
   /// Stellar address of the registered wallet
+  /// @PII
   walletAddress String   @unique
+  /// @PII
   displayName   String
   /// Hex-encoded metadata hash committed on-chain
   metadataHash  String
