@@ -5,15 +5,8 @@ import { z } from "zod";
 
 import { auth } from "@/lib/auth/server";
 import { encryptDisputeReason } from "@/lib/crypto/dispute-encryption";
-import { getPrismaClient } from "@/lib/db/client";
+import { getDbClient } from "@herledger/db";
 
-const prisma = getPrismaClient();
-
-// `reasonHash` is a 32-byte hex digest (64 hex chars), matching the
-// `reason_hash: BytesN<32>` argument submitted on-chain via dispute_event
-// (see dispute-form.tsx's hashReason()). We store the exact value the
-// client submitted on-chain rather than recomputing it server-side, so a
-// user can always reproduce and compare it against the on-chain record.
 const bodySchema = z.object({
   eventId: z.string().min(1).max(64),
   reason: z.string().min(1).max(2000),
@@ -53,10 +46,8 @@ export async function POST(req: NextRequest) {
   const { eventId, reason, reasonHash } = parsed.data;
 
   try {
-    const profile = await prisma.businessProfile.findFirst({
-      where: { userId: session.user.id },
-      select: { businessId: true },
-    });
+    const db = getDbClient();
+    const profile = await db.businesses.findByUserId(session.user.id);
     if (!profile) {
       return NextResponse.json(
         {
@@ -67,10 +58,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const event = await prisma.financialEvent.findUnique({
-      where: { eventId },
-      select: { businessId: true },
-    });
+    const event = await db.financialEvents.findById(eventId);
     if (!event) {
       return NextResponse.json(
         { data: null, error: { code: "NOT_FOUND", message: "Financial event not found" } },
@@ -90,24 +78,13 @@ export async function POST(req: NextRequest) {
     const { BETTER_AUTH_SECRET } = getServerEnv();
     const reasonPlaintext = encryptDisputeReason(reason, BETTER_AUTH_SECRET);
 
-    const dispute = await prisma.dispute.create({
-      data: {
-        eventId,
-        userId: session.user.id,
-        reasonPlaintext,
-        reasonHash,
-        status: "Submitted",
-      },
-      select: { id: true },
+    const dispute = await db.disputes.create({
+      eventId,
+      userId: session.user.id,
+      reasonPlaintext,
+      reasonHash,
+      status: "Submitted",
     });
-
-    // TODO(#51 follow-up): notify the event's attester(s), if any, that a
-    // dispute has been raised. The NotificationPreference model that would
-    // back an in-app/email notification pathway is being added in a
-    // parallel PR against prisma/schema.prisma; wiring the actual send is
-    // intentionally deferred until that model exists, to avoid coupling
-    // this PR to a branch it cannot see. Attestation.status is still kept
-    // eventually-consistent via the indexer's syncAttestation regardless.
 
     return NextResponse.json({ data: { id: dispute.id }, error: null });
   } catch (err) {

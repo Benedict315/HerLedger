@@ -15,6 +15,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "."),
+      "server-only": "node:events",
+      "@herledger/db": path.resolve(__dirname, "../../packages/db/src/index.ts"),
     },
   },
 });

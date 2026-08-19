@@ -3,11 +3,9 @@ import { NextRequest } from "next/server";
 
 import { typedJson } from "@/lib/api/route-handler";
 import { auth } from "@/lib/auth/server";
-import { getPrismaClient } from "@/lib/db/client";
+import { getDbClient } from "@herledger/db";
 
 import { RequestSchema, type ActivityRecentResponse } from "./schema";
-
-const prisma = getPrismaClient();
 
 export async function GET(req: NextRequest) {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -20,8 +18,8 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const parsed = RequestSchema.safeParse({
-    offset: searchParams.get("offset"),
-    limit: searchParams.get("limit"),
+    offset: searchParams.get("offset") ?? undefined,
+    limit: searchParams.get("limit") ?? undefined,
   });
   if (!parsed.success) {
     return typedJson<ActivityRecentResponse>(
@@ -30,10 +28,8 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const profile = await prisma.businessProfile.findFirst({
-    where: { userId: session.user.id },
-    select: { businessId: true },
-  });
+  const db = getDbClient();
+  const profile = await db.businesses.findByUserId(session.user.id);
 
   if (!profile) {
     return typedJson<ActivityRecentResponse>({
@@ -42,12 +38,11 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  const events = await prisma.financialEvent.findMany({
-    where: { businessId: profile.businessId },
-    orderBy: { ledgerSequence: "desc" },
-    skip: parsed.data.offset,
-    take: parsed.data.limit,
-  });
+  const events = await db.financialEvents.findByBusiness(
+    profile.businessId,
+    parsed.data.offset,
+    parsed.data.limit
+  );
 
   return typedJson<ActivityRecentResponse>({
     data: {

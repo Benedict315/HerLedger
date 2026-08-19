@@ -374,6 +374,19 @@ pnpm db:migrate:dev
 pnpm db:migrate
 ```
 
+### Shared Database Package (`@herledger/db`) & Dependency Injection
+
+HerLedger centralizes all database queries and Prisma interactions into the `@herledger/db` workspace package. This eliminates duplication between `apps/web` and `indexer`, provides domain-level error handling via `DatabaseError`, and enables clean dependency injection for testing.
+
+- **Client Factories:**
+  - `getPrismaClient()`: Singleton connection-pooled Prisma client.
+  - `createDbClient(prisma?: PrismaClient)`: Returns a typed `DbClient` holding sub-repositories (`businesses`, `financialEvents`, `attestations`, `attesters`, `checkpoint`, `indexerErrors`, `stellarTransactions`, `users`, `disputes`).
+  - `getDbClient()`: Default application singleton instance.
+- **Testing without Module Mocks:**
+  - `createMockDbClient(overrides?)`: Instantiates a mock `DbClient` populated with vitest mock functions (`vi.fn()`) for easy route handler unit testing.
+- **Shared Utilities:**
+  - `paginateArray`, `buildCursorPagination`, `filterEventsByStatus`, `clampPagination`.
+
 ---
 
 ## Running Locally
