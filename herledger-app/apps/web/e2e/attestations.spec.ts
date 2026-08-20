@@ -65,7 +65,9 @@ test.beforeEach(async ({ page, context }) => {
   });
 });
 
-test("renders both active and revoked attestations with correct status badges", async ({ page }) => {
+test("renders both active and revoked attestations with correct status badges", async ({
+  page,
+}) => {
   await page.goto("/dashboard/attestations");
 
   await expect(page.getByText("Status: Active")).toBeVisible();
@@ -127,7 +129,9 @@ test("register-attester page explains the admin-wallet requirement before connec
   await expect(page.getByRole("button", { name: "Connect Freighter wallet" })).toBeVisible();
 });
 
-test("create-attestation page prompts for an attester wallet connection first", async ({ page }) => {
+test("create-attestation page prompts for an attester wallet connection first", async ({
+  page,
+}) => {
   await page.goto("/dashboard/attestations/create");
 
   await expect(page.getByRole("heading", { name: "Create attestation" })).toBeVisible();

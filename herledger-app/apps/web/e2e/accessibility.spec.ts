@@ -68,7 +68,10 @@ async function runAxe(page: Page) {
   expect(
     seriousOrCritical,
     seriousOrCritical
-      .map((v) => `${v.id} (${v.impact}): ${v.help}\n${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)
+      .map(
+        (v) =>
+          `${v.id} (${v.impact}): ${v.help}\n${v.nodes.map((n) => n.target.join(" ")).join(", ")}`
+      )
       .join("\n\n")
   ).toEqual([]);
 }
@@ -126,7 +129,9 @@ test.describe("Dashboard accessibility (axe-core)", () => {
     await runAxe(page);
   });
 
-  test("business profile registration form has no critical/serious violations", async ({ page }) => {
+  test("business profile registration form has no critical/serious violations", async ({
+    page,
+  }) => {
     await page.route("**/api/business/current", async (route) => {
       await route.fulfill({ status: 404, contentType: "application/json", body: "{}" });
     });

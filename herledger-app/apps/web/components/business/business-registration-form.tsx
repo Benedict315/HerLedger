@@ -172,11 +172,7 @@ export function BusinessRegistrationForm() {
         <div style={{ marginBottom: "1rem" }}>
           <StatusBadge status="Verified" />
         </div>
-        <p
-          ref={setStepFocusRef}
-          tabIndex={-1}
-          style={{ fontWeight: 500, marginBottom: "0.5rem" }}
-        >
+        <p ref={setStepFocusRef} tabIndex={-1} style={{ fontWeight: 500, marginBottom: "0.5rem" }}>
           Business registered on Stellar
         </p>
         <p style={{ color: "var(--muted)", fontSize: "0.875rem", marginBottom: "0.5rem" }}>

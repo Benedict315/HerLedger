@@ -71,7 +71,10 @@ export async function POST(req: NextRequest) {
 
     if (!chainBusiness) {
       return typedJson<SyncResponse>(
-        { data: null, error: { code: "NOT_FOUND_ON_CHAIN", message: "Business not found on-chain" } },
+        {
+          data: null,
+          error: { code: "NOT_FOUND_ON_CHAIN", message: "Business not found on-chain" },
+        },
         { status: 404 }
       );
     }

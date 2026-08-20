@@ -1,7 +1,6 @@
 import { headers } from "next/headers";
 import { NextRequest } from "next/server";
 
-
 import { typedJson } from "@/lib/api/route-handler";
 import { auth } from "@/lib/auth/server";
 import { getPrismaClient } from "@/lib/db/client";

@@ -67,7 +67,10 @@ export async function POST(req: NextRequest) {
 
     if (!dbBusiness.active) {
       return typedJson<DeactivateResponse>(
-        { data: null, error: { code: "ALREADY_INACTIVE", message: "Business is already inactive" } },
+        {
+          data: null,
+          error: { code: "ALREADY_INACTIVE", message: "Business is already inactive" },
+        },
         { status: 400 }
       );
     }

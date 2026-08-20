@@ -30,7 +30,7 @@ export async function DELETE(request: Request) {
         body: {
           email: session.user.email,
           password: password,
-        }
+        },
       });
     } catch (error) {
       return NextResponse.json({ error: "Invalid password" }, { status: 401 });

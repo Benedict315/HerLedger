@@ -101,7 +101,10 @@ export async function POST(
       error: err,
     });
     return typedJson<ClaimDescriptionResponse>(
-      { data: null, error: { code: "INTERNAL_ERROR", message: "Failed to save claim description" } },
+      {
+        data: null,
+        error: { code: "INTERNAL_ERROR", message: "Failed to save claim description" },
+      },
       { status: 500 }
     );
   }
