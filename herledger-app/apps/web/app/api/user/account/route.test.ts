@@ -1,13 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { DELETE } from "./route";
 import { auth } from "@/lib/auth/server";
 
 vi.mock("server-only", () => ({}));
-vi.mock("@herledger/config", () => ({
-  getServerEnv: vi.fn(() => ({ DATABASE_URL: "mock" }))
-}));
-vi.mock("@herledger/config/server", () => ({
-  getServerEnv: vi.fn(() => ({ DATABASE_URL: "mock" }))
+vi.mock("@/lib/db/client", () => ({
+  getPrismaClient: () => mockPrisma,
 }));
 vi.mock("@/lib/auth/server", () => {
   return {
@@ -101,7 +99,7 @@ describe("DELETE /api/user/account", () => {
     });
     
     // Ensure the wallet was actually hashed and not just stored plain text
-    const updateCall = mockPrisma.businessProfile.update.mock.calls[0][0];
+    const updateCall = mockPrisma.businessProfile.update.mock.calls[0]![0];
     expect(updateCall.data.walletAddress).not.toBe("GABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHI");
     expect(updateCall.data.walletAddress.length).toBe(64); // SHA-256 hex length
   });

@@ -1,12 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/server";
-import { PrismaClient } from "@prisma/client";
-import { getServerEnv } from "@herledger/config/server";
+import { getPrismaClient } from "@/lib/db/client";
 import { createHash } from "crypto";
 
-const prisma = new PrismaClient({
-  datasourceUrl: getServerEnv().DATABASE_URL,
-});
+const prisma = getPrismaClient();
 
 export async function DELETE(request: Request) {
   try {
@@ -32,7 +29,7 @@ export async function DELETE(request: Request) {
           password: password,
         }
       });
-    } catch (error) {
+    } catch {
       return NextResponse.json({ error: "Invalid password" }, { status: 401 });
     }
 

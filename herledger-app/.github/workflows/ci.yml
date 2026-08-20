@@ -85,6 +85,10 @@ jobs:
         run: pnpm lint
         working-directory: herledger-app
 
+      - name: OpenAPI spec drift check
+        run: pnpm openapi:check
+        working-directory: herledger-app
+
       - name: Validate .env.example
         run: cp .env.example .env.local && pnpm env:validate
         working-directory: herledger-app
