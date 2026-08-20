@@ -69,6 +69,7 @@ export {
   decodeU64,
   decodeBool,
   hexToBytes,
+  toHexString32,
 } from "./contracts/encoding.js";
 
 // Contract address registry

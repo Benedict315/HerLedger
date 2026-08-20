@@ -21,6 +21,7 @@ import {
   decodeBytes32,
   decodeAddress,
   decodeBool,
+  toHexString32,
 } from "./encoding.js";
 
 // ---------------------------------------------------------------------------
@@ -81,7 +82,7 @@ export async function getBusiness(
     fee: "100",
     networkPassphrase: config.networkPassphrase,
   })
-    .addOperation(contract.call("get_business", encodeBytes32(businessId)))
+    .addOperation(contract.call("get_business", encodeBytes32(toHexString32(businessId))))
     .setTimeout(30)
     .build();
 
@@ -154,10 +155,10 @@ export async function registerBusiness(
     .addOperation(
       contract.call(
         "register_business",
-        encodeBytes32(params.businessId),
+        encodeBytes32(toHexString32(params.businessId)),
         encodeAddress(params.owner),
         encodeAddress(params.wallet),
-        encodeBytes32(params.metadataHash)
+        encodeBytes32(toHexString32(params.metadataHash))
       )
     )
     .setTimeout(300)
@@ -193,8 +194,8 @@ export async function updateBusinessMetadata(
     .addOperation(
       contract.call(
         "update_metadata",
-        encodeBytes32(params.businessId),
-        encodeBytes32(params.metadataHash)
+        encodeBytes32(toHexString32(params.businessId)),
+        encodeBytes32(toHexString32(params.metadataHash))
       )
     )
     .setTimeout(300)
@@ -226,7 +227,7 @@ export async function deactivateBusiness(
     fee: "1000000",
     networkPassphrase: config.networkPassphrase,
   })
-    .addOperation(contract.call("deactivate_business", encodeBytes32(params.businessId)))
+    .addOperation(contract.call("deactivate_business", encodeBytes32(toHexString32(params.businessId))))
     .setTimeout(300)
     .build();
 
