@@ -57,6 +57,9 @@ importers:
       '@herledger/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@herledger/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@herledger/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
@@ -264,7 +267,7 @@ importers:
         version: 6.3.5(@types/node@24.0.10)(jiti@2.7.0)(tsx@4.19.2)(yaml@2.9.0)
       vitest:
         specifier: 4.1.10
-        version: 4.1.10(@types/node@24.0.10)(@vitest/coverage-v8@4.1.10)(vite@6.3.5(@types/node@24.0.10)(jiti@2.7.0)(tsx@4.19.2)(yaml@2.9.0))
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.0.10)(@vitest/coverage-v8@4.1.10)(jsdom@25.0.1)(vite@6.3.5(@types/node@24.0.10)(jiti@2.7.0)(tsx@4.19.2)(yaml@2.9.0))
 
   packages/sdk:
     dependencies:

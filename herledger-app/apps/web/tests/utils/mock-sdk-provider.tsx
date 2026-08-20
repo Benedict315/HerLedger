@@ -1,4 +1,6 @@
+import { WalletError } from "@herledger/sdk";
 import type { ReactNode } from "react";
+
 import { SdkContext, defaultSdkClient, type SdkClient } from "@/lib/sdk/sdk-context";
 
 // ---------------------------------------------------------------------------
@@ -68,4 +70,47 @@ export function mockRegisterBusinessRejectedOnChain(): SdkClient["registerBusine
 /** Never resolves — useful for asserting the "submitting" step renders correctly. */
 export function mockRegisterBusinessPending(): SdkClient["registerBusiness"] {
   return () => new Promise(() => {});
+}
+
+/**
+ * Throws a `WalletError`, simulating Freighter disconnecting (or a signing
+ * call failing because it's no longer reachable) mid-flow — exercises the
+ * `WALLET_DISCONNECTED` transition, distinct from a generic thrown error.
+ */
+export function mockRegisterBusinessWalletDisconnected(
+  message = "Freighter signing rejected: wallet disconnected"
+): SdkClient["registerBusiness"] {
+  return async () => {
+    throw new WalletError(message);
+  };
+}
+
+/**
+ * Fires `onSubmitted` with the given hash before resolving successfully —
+ * exercises the pending-registration write inside submit(), same as a real
+ * `registerBusiness()` call reaching on-chain submission.
+ */
+export function mockRegisterBusinessSuccessWithSubmittedHash(
+  txHash: string
+): SdkClient["registerBusiness"] {
+  return async (_params, _config, _contracts, onSubmitted) => {
+    onSubmitted?.(txHash);
+    return { hash: txHash, success: true, ledger: 123456 };
+  };
+}
+
+/** Resolves as a successfully-confirmed poll — used to exercise the resume-on-reload path. */
+export function mockPollTransactionStatusSuccess(
+  txHash: string = `mock-tx-${Math.random().toString(36).slice(2)}`
+): SdkClient["pollTransactionStatus"] {
+  return async () => ({ hash: txHash, success: true, ledger: 123456 });
+}
+
+/** Rejects, simulating a poll that times out or finds the transaction failed on-chain. */
+export function mockPollTransactionStatusThrows(
+  message = "Simulated poll failure"
+): SdkClient["pollTransactionStatus"] {
+  return async () => {
+    throw new Error(message);
+  };
 }
