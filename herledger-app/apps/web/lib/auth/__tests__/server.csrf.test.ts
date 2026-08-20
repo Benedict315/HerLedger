@@ -1,6 +1,8 @@
 import { StrKey } from "@stellar/stellar-sdk";
 import { describe, it, expect, beforeAll } from "vitest";
 
+vi.mock("server-only", () => ({}));
+
 // `server.ts` reads all server env vars at module load time (via
 // getServerEnv()), so they must be set before the module is imported. We
 // import it dynamically inside beforeAll rather than statically at the top

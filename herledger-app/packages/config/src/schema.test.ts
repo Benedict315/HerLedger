@@ -28,9 +28,50 @@ const VALID_SERVER_ENV = {
 
 describe("Environment Schema", () => {
   describe("serverEnvSchema", () => {
-    it("should pass when all required vars are present", () => {
+    it("should pass when all required vars are present (with STELLAR_RPC_URL)", () => {
       const result = serverEnvSchema.safeParse(VALID_SERVER_ENV);
       expect(result.success).toBe(true);
+    });
+
+    it("should pass when STELLAR_RPC_URLS is used instead of STELLAR_RPC_URL", () => {
+      const { STELLAR_RPC_URL: _omitted, ...rest } = VALID_SERVER_ENV;
+      const result = serverEnvSchema.safeParse({
+        ...rest,
+        STELLAR_RPC_URLS: "http://localhost:8000",
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("should pass when STELLAR_RPC_URLS contains multiple comma-separated URLs", () => {
+      const { STELLAR_RPC_URL: _omitted, ...rest } = VALID_SERVER_ENV;
+      const result = serverEnvSchema.safeParse({
+        ...rest,
+        STELLAR_RPC_URLS: "http://rpc1.example.com,http://rpc2.example.com",
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("should pass when both STELLAR_RPC_URL and STELLAR_RPC_URLS are present", () => {
+      const result = serverEnvSchema.safeParse({
+        ...VALID_SERVER_ENV,
+        STELLAR_RPC_URLS: "http://rpc1.example.com,http://rpc2.example.com",
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("should fail when neither STELLAR_RPC_URL nor STELLAR_RPC_URLS is set", () => {
+      const { STELLAR_RPC_URL: _omitted, ...rest } = VALID_SERVER_ENV;
+      const result = serverEnvSchema.safeParse(rest);
+      expect(result.success).toBe(false);
+    });
+
+    it("should fail when STELLAR_RPC_URLS contains invalid URLs", () => {
+      const { STELLAR_RPC_URL: _omitted, ...rest } = VALID_SERVER_ENV;
+      const result = serverEnvSchema.safeParse({
+        ...rest,
+        STELLAR_RPC_URLS: "not-a-url,also-not-a-url",
+      });
+      expect(result.success).toBe(false);
     });
 
     it("should fail when all required vars are missing", () => {
