@@ -3,7 +3,8 @@ import { NextRequest } from "next/server";
 
 import { typedJson } from "@/lib/api/route-handler";
 import { auth } from "@/lib/auth/server";
-import { getDbClient } from "@herledger/db";
+import { getRecentActivity } from "@/lib/data/activity";
+import { getPrismaClient } from "@/lib/db/client";
 
 import { RequestSchema, type ActivityRecentResponse } from "./schema";
 
@@ -31,28 +32,10 @@ export async function GET(req: NextRequest) {
   const db = getDbClient();
   const profile = await db.businesses.findByUserId(session.user.id);
 
-  if (!profile) {
-    return typedJson<ActivityRecentResponse>({
-      data: { events: [], pagination: { offset: 0, limit: parsed.data.limit, count: 0 } },
-      error: null,
-    });
-  }
-
-  const events = await db.financialEvents.findByBusiness(
-    profile.businessId,
-    parsed.data.offset,
-    parsed.data.limit
-  );
-
-  return typedJson<ActivityRecentResponse>({
-    data: {
-      events,
-      pagination: {
-        offset: parsed.data.offset,
-        limit: parsed.data.limit,
-        count: events.length,
-      },
-    },
-    error: null,
+  const data = await getRecentActivity(profile?.businessId ?? null, {
+    offset: parsed.data.offset,
+    limit: parsed.data.limit,
   });
+
+  return typedJson<ActivityRecentResponse>({ data, error: null });
 }

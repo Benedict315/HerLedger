@@ -1,10 +1,10 @@
 import { headers } from "next/headers";
 import { NextRequest } from "next/server";
 
-
 import { typedJson } from "@/lib/api/route-handler";
 import { auth } from "@/lib/auth/server";
-import { getDbClient } from "@herledger/db";
+import { getAttestations } from "@/lib/data/attestations";
+import { getPrismaClient } from "@/lib/db/client";
 
 import { RequestSchema } from "./schema";
 import type { AttestationsResponse } from "./schema";
@@ -31,15 +31,12 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const db = getDbClient();
-  const profile = await db.businesses.findByUserId(session.user.id);
-  if (!profile) {
-    return typedJson<AttestationsResponse>({ data: { attestations: [] }, error: null });
-  }
-
-  const attestations = await db.attestations.findByBusiness(profile.businessId, {
-    includeRevoked: parsed.data.includeRevoked,
+  const profile = await prisma.businessProfile.findFirst({
+    where: { userId: session.user.id },
+    select: { businessId: true },
   });
 
-  return typedJson<AttestationsResponse>({ data: { attestations }, error: null });
+  const data = await getAttestations(profile?.businessId ?? null, parsed.data.includeRevoked);
+
+  return typedJson<AttestationsResponse>({ data, error: null });
 }

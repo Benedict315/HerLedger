@@ -23,6 +23,12 @@ import {
   recordDeadLettered,
   finishCycleMetrics,
 } from "./sync-metrics.js";
+import {
+  logger,
+  generateCorrelationId,
+  runWithContext,
+  syncLagLedgers,
+} from "../observability/index.js";
 
 // ---------------------------------------------------------------------------
 // Main ledger sync job
@@ -45,17 +51,24 @@ export async function runSyncJob(): Promise<void> {
     stellarConfig.networkPassphrase
   );
 
-  console.log({ job: "sync-ledger", event: "start", network: stellarConfig.network });
+  logger.info({ job: "sync-ledger", event: "start", network: stellarConfig.network }, "Starting sync ledger job");
 
   while (true) {
+    const correlationId = generateCorrelationId();
     try {
-      await syncCycle(prisma, stellarConfig, contractConfig);
-    } catch (err) {
-      console.error({
-        job: "sync-ledger",
-        event: "cycle-error",
-        error: err instanceof Error ? err.message : String(err),
+      await runWithContext({ correlationId, job: "sync-ledger" }, async () => {
+        await syncCycle(prisma, stellarConfig, contractConfig);
       });
+    } catch (err) {
+      logger.error(
+        {
+          job: "sync-ledger",
+          event: "cycle-error",
+          correlationId,
+          error: err instanceof Error ? err.message : String(err),
+        },
+        "Error during sync cycle"
+      );
     }
     await sleep(SYNC_INTERVAL_MS);
   }
@@ -70,13 +83,19 @@ async function syncCycle(
 
   const latestLedger = await fetchLatestLedger(stellarConfig);
   const lastCheckpoint = await getCheckpoint(prisma, MAIN_STREAM);
+  const initialLag = Math.max(0, latestLedger - lastCheckpoint);
+  syncLagLedgers.set(initialLag);
 
-  console.log({
-    job: "sync-ledger",
-    event: "cycle-begin",
-    lastCheckpoint,
-    latestLedger,
-  });
+  logger.info(
+    {
+      job: "sync-ledger",
+      event: "cycle-begin",
+      lastCheckpoint,
+      latestLedger,
+      syncLag: initialLag,
+    },
+    "Beginning ledger sync cycle"
+  );
 
   let maxProcessedLedger = lastCheckpoint;
   let anyWallets = false;
@@ -140,20 +159,26 @@ async function syncCycle(
             } catch (dlErr) {
               // If we can't even write the dead-letter row, at minimum log it
               // loudly -- this event's failure would otherwise be silently lost.
-              console.error({
-                job: "sync-ledger",
-                event: "dead-letter-write-failed",
-                transactionHash: tx.hash,
-                originalError: err instanceof Error ? err.message : String(err),
-                writeError: dlErr instanceof Error ? dlErr.message : String(dlErr),
-              });
+              logger.error(
+                {
+                  job: "sync-ledger",
+                  event: "dead-letter-write-failed",
+                  transactionHash: tx.hash,
+                  originalError: err instanceof Error ? err.message : String(err),
+                  writeError: dlErr instanceof Error ? dlErr.message : String(dlErr),
+                },
+                "Failed to write dead letter row"
+              );
             }
-            console.error({
-              job: "sync-ledger",
-              event: "transaction-failed",
-              transactionHash: tx.hash,
-              error: err instanceof Error ? err.message : String(err),
-            });
+            logger.error(
+              {
+                job: "sync-ledger",
+                event: "transaction-failed",
+                transactionHash: tx.hash,
+                error: err instanceof Error ? err.message : String(err),
+              },
+              "Transaction processing failed"
+            );
           }
 
           if (ledger > maxProcessedLedger) {
@@ -174,17 +199,22 @@ async function syncCycle(
 
   if (!anyWallets) {
     await saveCheckpoint(prisma, MAIN_STREAM, latestLedger);
+    syncLagLedgers.set(0);
     return;
   }
 
   // Persist checkpoint only after successful processing
   if (maxProcessedLedger > lastCheckpoint) {
     await saveCheckpoint(prisma, MAIN_STREAM, maxProcessedLedger);
-    console.log({
-      job: "sync-ledger",
-      event: "checkpoint-saved",
-      ledger: maxProcessedLedger,
-    });
+    syncLagLedgers.set(Math.max(0, latestLedger - maxProcessedLedger));
+    logger.info(
+      {
+        job: "sync-ledger",
+        event: "checkpoint-saved",
+        ledger: maxProcessedLedger,
+      },
+      "Checkpoint saved successfully"
+    );
   }
 }
 

@@ -1,96 +1,122 @@
 import { getServerEnv } from "@herledger/config/server";
 import { headers } from "next/headers";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { z } from "zod";
 
+import { typedJson } from "@/lib/api/route-handler";
 import { auth } from "@/lib/auth/server";
-import { encryptDisputeReason } from "@/lib/crypto/dispute-encryption";
-import { getDbClient } from "@herledger/db";
+import { getPrismaClient } from "@/lib/db/client";
 
-const bodySchema = z.object({
-  eventId: z.string().min(1).max(64),
-  reason: z.string().min(1).max(2000),
-  reasonHash: z
-    .string()
-    .length(64)
-    .regex(/^[0-9a-f]{64}$/i, "reasonHash must be a 64-character hex string"),
+const QuerySchema = z.object({
+  businessId: z.string().min(1),
+  offset: z.coerce.number().int().min(0).default(0),
+  limit: z.coerce.number().int().min(1).max(50).default(10),
 });
 
-export async function POST(req: NextRequest) {
+interface DisputesResponse {
+  data: {
+    disputes: Array<{
+      id: string;
+      eventId: string;
+      reasonHash: string;
+      status: string;
+      createdAt: string;
+      updatedAt: string;
+    }>;
+    total: number;
+    offset: number;
+    limit: number;
+  } | null;
+  error: { code: string; message: string } | null;
+}
+
+const prisma = getPrismaClient();
+
+export async function GET(req: NextRequest) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) {
-    return NextResponse.json(
+    return typedJson<DisputesResponse>(
       { data: null, error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
       { status: 401 }
     );
   }
 
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json(
-      { data: null, error: { code: "INVALID_BODY", message: "Invalid request body" } },
-      { status: 400 }
-    );
-  }
-
-  const parsed = bodySchema.safeParse(body);
+  const searchParams = Object.fromEntries(req.nextUrl.searchParams);
+  const parsed = QuerySchema.safeParse(searchParams);
+  
   if (!parsed.success) {
-    return NextResponse.json(
-      { data: null, error: { code: "VALIDATION_ERROR", message: "Invalid dispute data" } },
+    return typedJson<DisputesResponse>(
+      { data: null, error: { code: "VALIDATION_ERROR", message: "Invalid query parameters" } },
       { status: 400 }
     );
   }
 
-  const { eventId, reason, reasonHash } = parsed.data;
+  const { businessId, offset, limit } = parsed.data;
 
   try {
-    const db = getDbClient();
-    const profile = await db.businesses.findByUserId(session.user.id);
-    if (!profile) {
-      return NextResponse.json(
-        {
-          data: null,
-          error: { code: "NO_BUSINESS", message: "No business registered for this account" },
-        },
-        { status: 403 }
-      );
-    }
+    // Verify business ownership
+    const business = await prisma.businessProfile.findFirst({
+      where: {
+        businessId,
+        userId: session.user.id,
+      },
+    });
 
-    const event = await db.financialEvents.findById(eventId);
-    if (!event) {
-      return NextResponse.json(
-        { data: null, error: { code: "NOT_FOUND", message: "Financial event not found" } },
+    if (!business) {
+      return typedJson<DisputesResponse>(
+        { data: null, error: { code: "NOT_FOUND", message: "Business not found" } },
         { status: 404 }
       );
     }
-    if (event.businessId !== profile.businessId) {
-      return NextResponse.json(
-        {
-          data: null,
-          error: { code: "FORBIDDEN", message: "You do not own this financial event" },
+
+    // Fetch disputes with pagination
+    const [disputes, total] = await Promise.all([
+      prisma.dispute.findMany({
+        where: {
+          financialEvent: {
+            businessId,
+          },
         },
-        { status: 403 }
-      );
-    }
+        include: {
+          financialEvent: {
+            select: {
+              id: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        skip: offset,
+        take: limit,
+      }),
+      prisma.dispute.count({
+        where: {
+          financialEvent: {
+            businessId,
+          },
+        },
+      }),
+    ]);
 
-    const { BETTER_AUTH_SECRET } = getServerEnv();
-    const reasonPlaintext = encryptDisputeReason(reason, BETTER_AUTH_SECRET);
-
-    const dispute = await db.disputes.create({
-      eventId,
-      userId: session.user.id,
-      reasonPlaintext,
-      reasonHash,
-      status: "Submitted",
+    return typedJson<DisputesResponse>({
+      data: {
+        disputes: disputes.map((d) => ({
+          id: d.id,
+          eventId: d.eventId,
+          reasonHash: d.reasonHash,
+          status: d.status,
+          createdAt: d.createdAt.toISOString(),
+          updatedAt: d.updatedAt.toISOString(),
+        })),
+        total,
+        offset,
+        limit,
+      },
+      error: null,
     });
-
-    return NextResponse.json({ data: { id: dispute.id }, error: null });
   } catch (err) {
-    console.error({ operation: "create-dispute", userId: session.user.id, error: err });
-    return NextResponse.json(
-      { data: null, error: { code: "INTERNAL_ERROR", message: "Failed to record dispute" } },
+    console.error({ operation: "list-disputes", userId: session.user.id, error: err });
+    return typedJson<DisputesResponse>(
+      { data: null, error: { code: "INTERNAL_ERROR", message: "Failed to fetch disputes" } },
       { status: 500 }
     );
   }

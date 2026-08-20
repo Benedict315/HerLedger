@@ -1,8 +1,10 @@
 import { getAttestation } from "@herledger/sdk";
+import { revalidateTag } from "next/cache";
 import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/lib/auth/server";
+import { attestationsTag } from "@/lib/data/attestations";
 import { getPrismaClient } from "@/lib/db/client";
 import { getServerStellarConfig, getServerContractConfig } from "@/lib/stellar/server-config";
 
@@ -66,7 +68,11 @@ export async function POST(
     ledgerSequence: existing.ledgerSequence,
   });
 
-  const updated = await db.attestations.findById(attestationId);
+  // "max" per Next.js's own guidance: revalidateTag's second argument
+  // selects a cacheLife profile to purge from; "max" purges regardless of
+  // profile, which is what we want for a plain unstable_cache tag (this
+  // route isn't using the newer "use cache" directive).
+  revalidateTag(attestationsTag(profile.businessId), "max");
 
   return NextResponse.json({ data: { attestation: updated }, error: null });
 }
