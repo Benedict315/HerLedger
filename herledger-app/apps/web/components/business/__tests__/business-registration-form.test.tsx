@@ -1,15 +1,15 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useEffect } from "react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Must be imported (and vi.mock() registered) before "../business-registration-form"
 // — that component transitively imports "@herledger/config" via
 // useRegistrationFlow, and import order (not vi.mock's hoisting) determines
 // which runs first. See use-registration-flow.test.tsx for the full note.
+import { clearPendingRegistration } from "@/lib/business/pending-registration";
 import { mockPublicEnv } from "@/tests/utils/mock-public-env";
-import { TEST_WALLET_ADDRESS, mockWalletConnectionState } from "@/tests/utils/mock-wallet";
 
 vi.mock("@herledger/config", () => ({
   getPublicEnv: mockPublicEnv,
@@ -47,17 +47,24 @@ vi.mock("@/components/wallet/wallet-connect", () => ({
   },
 }));
 
-import { BusinessRegistrationForm } from "../business-registration-form";
 import {
   MockSdkProvider,
   mockRegisterBusinessSuccess,
   mockRegisterBusinessThrows,
+  mockRegisterBusinessWalletDisconnected,
 } from "@/tests/utils/mock-sdk-provider";
-import { resetMockWalletConnectionState } from "@/tests/utils/mock-wallet";
+import {
+  TEST_WALLET_ADDRESS,
+  mockWalletConnectionState,
+  resetMockWalletConnectionState,
+} from "@/tests/utils/mock-wallet";
+
+import { BusinessRegistrationForm } from "../business-registration-form";
 
 beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }));
   resetMockWalletConnectionState();
+  clearPendingRegistration();
 });
 
 function renderForm(overrides: Parameters<typeof MockSdkProvider>[0]["overrides"]) {
@@ -71,7 +78,9 @@ function renderForm(overrides: Parameters<typeof MockSdkProvider>[0]["overrides"
 describe("BusinessRegistrationForm", () => {
   it("renders the wallet step first, with only one step marked aria-current", () => {
     renderForm({});
-    const current = screen.getAllByRole("listitem").filter((li) => li.getAttribute("aria-current") === "step");
+    const current = screen
+      .getAllByRole("listitem")
+      .filter((li) => li.getAttribute("aria-current") === "step");
     expect(current).toHaveLength(1);
     expect(current[0]).toHaveTextContent("Connect wallet");
   });
@@ -125,6 +134,28 @@ describe("BusinessRegistrationForm", () => {
 
     expect(screen.getByRole("heading", { name: /step 2: business details/i })).toBeInTheDocument();
     // No wallet-connect button re-appears — connection was preserved.
-    expect(screen.queryByRole("button", { name: /connect freighter wallet/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /connect freighter wallet/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows an inline error and a reconnect prompt when the wallet disconnects mid-flow, without crashing", async () => {
+    const user = userEvent.setup();
+    renderForm({ registerBusiness: mockRegisterBusinessWalletDisconnected() });
+
+    await user.click(screen.getByRole("button", { name: /connect freighter wallet/i }));
+    await user.type(screen.getByLabelText(/business name/i), "Acme Traders");
+    await user.click(screen.getByRole("button", { name: /register on stellar/i }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/reconnect/i);
+
+    // Simulate Freighter genuinely being gone now, not just this one
+    // signing call having failed — mirrors a real disconnect.
+    mockWalletConnectionState.connected = false;
+
+    await user.click(screen.getByRole("button", { name: /try again/i }));
+
+    expect(screen.getByRole("button", { name: /connect freighter wallet/i })).toBeInTheDocument();
   });
 });

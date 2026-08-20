@@ -1,8 +1,13 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
+import {
+  clearPendingRegistration,
+  readPendingRegistration,
+  writePendingRegistration,
+} from "@/lib/business/pending-registration";
 // `mockPublicEnv` must be imported (and the vi.mock() below registered)
 // BEFORE `../use-registration-flow` is imported: vi.mock() calls are
 // hoisted above all imports, but import statements keep their own relative
@@ -21,11 +26,16 @@ vi.mock("@herledger/config", () => ({
 }));
 
 import { useRegistrationFlow } from "../use-registration-flow";
+
 import {
   MockSdkProvider,
   mockRegisterBusinessSuccess,
   mockRegisterBusinessThrows,
   mockRegisterBusinessRejectedOnChain,
+  mockRegisterBusinessWalletDisconnected,
+  mockRegisterBusinessSuccessWithSubmittedHash,
+  mockPollTransactionStatusSuccess,
+  mockPollTransactionStatusThrows,
 } from "@/tests/utils/mock-sdk-provider";
 
 function wrapper(overrides: Parameters<typeof MockSdkProvider>[0]["overrides"]) {
@@ -35,10 +45,8 @@ function wrapper(overrides: Parameters<typeof MockSdkProvider>[0]["overrides"]) 
 }
 
 beforeEach(() => {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) })
-  );
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }));
+  clearPendingRegistration();
 });
 
 describe("useRegistrationFlow: happy path", () => {
@@ -143,6 +151,137 @@ describe("useRegistrationFlow: error paths", () => {
     });
 
     expect(registerBusiness).not.toHaveBeenCalled();
+    expect(result.current.step).toBe("wallet");
+  });
+
+  it("moves to error and clears the wallet address when the SDK throws a WalletError", async () => {
+    const { result } = renderHook(() => useRegistrationFlow(), {
+      wrapper: wrapper({ registerBusiness: mockRegisterBusinessWalletDisconnected() }),
+    });
+
+    act(() => result.current.connectWallet(TEST_WALLET_ADDRESS));
+    act(() => result.current.setBusinessName("Acme"));
+    await act(async () => {
+      await result.current.submit();
+    });
+
+    expect(result.current.step).toBe("error");
+    expect(result.current.walletAddress).toBeNull();
+    expect(result.current.error).toMatch(/reconnect/i);
+  });
+
+  it("retry() after a wallet disconnect routes back to the wallet step, not details", async () => {
+    const { result } = renderHook(() => useRegistrationFlow(), {
+      wrapper: wrapper({ registerBusiness: mockRegisterBusinessWalletDisconnected() }),
+    });
+
+    act(() => result.current.connectWallet(TEST_WALLET_ADDRESS));
+    act(() => result.current.setBusinessName("Acme"));
+    await act(async () => {
+      await result.current.submit();
+    });
+    expect(result.current.step).toBe("error");
+
+    act(() => result.current.retry());
+    expect(result.current.step).toBe("wallet");
+    expect(result.current.walletAddress).toBeNull();
+  });
+});
+
+describe("useRegistrationFlow: pending registration persistence", () => {
+  it("writes a pending registration once the SDK reports the tx as submitted, and clears it after a successful POST", async () => {
+    const { result } = renderHook(() => useRegistrationFlow(), {
+      wrapper: wrapper({
+        registerBusiness: mockRegisterBusinessSuccessWithSubmittedHash("tx-pending-1"),
+      }),
+    });
+
+    act(() => result.current.connectWallet(TEST_WALLET_ADDRESS));
+    act(() => result.current.setBusinessName("Acme Traders"));
+
+    const submitPromise = act(async () => {
+      await result.current.submit();
+    });
+
+    await waitFor(() =>
+      expect(readPendingRegistration()).toMatchObject({
+        walletAddress: TEST_WALLET_ADDRESS,
+        displayName: "Acme Traders",
+        txHash: "tx-pending-1",
+      })
+    );
+
+    await submitPromise;
+    expect(readPendingRegistration()).toBeNull();
+  });
+
+  it("keeps the pending registration when the confirmation POST fails, for a later resume to retry", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+    const { result } = renderHook(() => useRegistrationFlow(), {
+      wrapper: wrapper({
+        registerBusiness: mockRegisterBusinessSuccessWithSubmittedHash("tx-pending-2"),
+      }),
+    });
+
+    act(() => result.current.connectWallet(TEST_WALLET_ADDRESS));
+    act(() => result.current.setBusinessName("Acme Traders"));
+    await act(async () => {
+      await result.current.submit();
+    });
+
+    // The on-chain submission still succeeded, so the UI shows confirmed...
+    expect(result.current.step).toBe("confirmed");
+    // ...but the DB write failed, so the pending record survives for resume.
+    expect(readPendingRegistration()).toMatchObject({ txHash: "tx-pending-2" });
+  });
+});
+
+describe("useRegistrationFlow: resume on mount", () => {
+  it("resumes a pending registration left by a previous session and reaches confirmed", async () => {
+    writePendingRegistration({
+      businessId: "b".repeat(64),
+      walletAddress: TEST_WALLET_ADDRESS,
+      displayName: "Acme Traders",
+      metadataHash: "c".repeat(64),
+      txHash: "tx-resumed",
+      submittedAt: new Date().toISOString(),
+    });
+
+    const { result } = renderHook(() => useRegistrationFlow(), {
+      wrapper: wrapper({ pollTransactionStatus: mockPollTransactionStatusSuccess("tx-resumed") }),
+    });
+
+    // Skips straight to "submitting" on mount -- no wallet-connect click needed.
+    expect(result.current.step).toBe("submitting");
+
+    await waitFor(() => expect(result.current.step).toBe("confirmed"));
+    expect(result.current.txHash).toBe("tx-resumed");
+    expect(readPendingRegistration()).toBeNull();
+  });
+
+  it("moves to error and clears the pending registration when the resumed poll fails", async () => {
+    writePendingRegistration({
+      businessId: "b".repeat(64),
+      walletAddress: TEST_WALLET_ADDRESS,
+      displayName: "Acme Traders",
+      metadataHash: "c".repeat(64),
+      txHash: "tx-resumed-fail",
+      submittedAt: new Date().toISOString(),
+    });
+
+    const { result } = renderHook(() => useRegistrationFlow(), {
+      wrapper: wrapper({ pollTransactionStatus: mockPollTransactionStatusThrows("timed out") }),
+    });
+
+    await waitFor(() => expect(result.current.step).toBe("error"));
+    expect(readPendingRegistration()).toBeNull();
+  });
+
+  it("does not resume when there is no pending registration", () => {
+    const { result } = renderHook(() => useRegistrationFlow(), {
+      wrapper: wrapper({}),
+    });
+
     expect(result.current.step).toBe("wallet");
   });
 });

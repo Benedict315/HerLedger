@@ -13,7 +13,10 @@ const commaSeparatedUrls = z
   .min(1)
   .refine(
     (val) => {
-      const urls = val.split(",").map((u) => u.trim()).filter(Boolean);
+      const urls = val
+        .split(",")
+        .map((u) => u.trim())
+        .filter(Boolean);
       if (urls.length === 0) return false;
       return urls.every((u) => {
         try {

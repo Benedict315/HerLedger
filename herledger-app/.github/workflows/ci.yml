@@ -38,6 +38,8 @@ jobs:
       DATABASE_URL: postgresql://herledger:herledger@localhost:5432/herledger_test
       SHADOW_DATABASE_URL: postgresql://herledger:herledger@localhost:5432/herledger_shadow
       BETTER_AUTH_SECRET: ci-test-secret-must-be-at-least-32-chars-long
+      RESEND_API_KEY: re_ci_test_key_not_a_real_key
+      EMAIL_FROM: "HerLedger <onboarding@resend.dev>"
       APP_URL: http://localhost:3000
       STELLAR_NETWORK: testnet
       STELLAR_RPC_URL: https://soroban-testnet.stellar.org
