@@ -3,11 +3,10 @@ import { NextRequest } from "next/server";
 
 import { typedJson } from "@/lib/api/route-handler";
 import { auth } from "@/lib/auth/server";
+import { getRecentActivity } from "@/lib/data/activity";
 import { getPrismaClient } from "@/lib/db/client";
 
 import { RequestSchema, type ActivityRecentResponse } from "./schema";
-
-const prisma = getPrismaClient();
 
 export async function GET(req: NextRequest) {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -20,8 +19,8 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const parsed = RequestSchema.safeParse({
-    offset: searchParams.get("offset"),
-    limit: searchParams.get("limit"),
+    offset: searchParams.get("offset") ?? undefined,
+    limit: searchParams.get("limit") ?? undefined,
   });
   if (!parsed.success) {
     return typedJson<ActivityRecentResponse>(
@@ -30,34 +29,13 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const profile = await prisma.businessProfile.findFirst({
-    where: { userId: session.user.id },
-    select: { businessId: true },
+  const db = getDbClient();
+  const profile = await db.businesses.findByUserId(session.user.id);
+
+  const data = await getRecentActivity(profile?.businessId ?? null, {
+    offset: parsed.data.offset,
+    limit: parsed.data.limit,
   });
 
-  if (!profile) {
-    return typedJson<ActivityRecentResponse>({
-      data: { events: [], pagination: { offset: 0, limit: parsed.data.limit, count: 0 } },
-      error: null,
-    });
-  }
-
-  const events = await prisma.financialEvent.findMany({
-    where: { businessId: profile.businessId },
-    orderBy: { ledgerSequence: "desc" },
-    skip: parsed.data.offset,
-    take: parsed.data.limit,
-  });
-
-  return typedJson<ActivityRecentResponse>({
-    data: {
-      events,
-      pagination: {
-        offset: parsed.data.offset,
-        limit: parsed.data.limit,
-        count: events.length,
-      },
-    },
-    error: null,
-  });
+  return typedJson<ActivityRecentResponse>({ data, error: null });
 }
