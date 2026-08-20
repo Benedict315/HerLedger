@@ -3,11 +3,9 @@ import { NextRequest } from "next/server";
 
 import { typedJson } from "@/lib/api/route-handler";
 import { auth } from "@/lib/auth/server";
-import { getPrismaClient } from "@/lib/db/client";
+import { getDbClient } from "@herledger/db";
 
 import { RequestSchema, type BusinessRegisterResponse } from "./schema";
-
-const prisma = getPrismaClient();
 
 export async function POST(req: NextRequest) {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -39,9 +37,8 @@ export async function POST(req: NextRequest) {
   const { businessId, walletAddress, displayName, metadataHash } = parsed.data;
 
   try {
-    const existing = await prisma.businessProfile.findFirst({
-      where: { userId: session.user.id },
-    });
+    const db = getDbClient();
+    const existing = await db.businesses.findByUserId(session.user.id);
     if (existing) {
       return typedJson<BusinessRegisterResponse>(
         {
@@ -55,15 +52,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const profile = await prisma.businessProfile.create({
-      data: {
-        userId: session.user.id,
-        businessId,
-        walletAddress,
-        displayName,
-        metadataHash,
-        active: true,
-      },
+    const profile = await db.businesses.create({
+      userId: session.user.id,
+      businessId,
+      walletAddress,
+      displayName,
+      metadataHash,
+      active: true,
     });
 
     return typedJson<BusinessRegisterResponse>({

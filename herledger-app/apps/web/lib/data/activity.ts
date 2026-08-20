@@ -3,9 +3,7 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 
 import type { ActivityRecentData } from "@/app/api/activity/recent/schema";
-import { getPrismaClient } from "@/lib/db/client";
-
-const prisma = getPrismaClient();
+import { getDbClient } from "@herledger/db";
 
 // ---------------------------------------------------------------------------
 // Shared data-access for "recent financial activity", used by both the
@@ -32,29 +30,27 @@ export async function getRecentActivity(
     return { events: [], pagination: { offset: 0, limit, count: 0 } };
   }
 
-  const fetchPage = unstable_cache(
-    async () => {
-      const events = await prisma.financialEvent.findMany({
-        where: { businessId },
-        orderBy: { ledgerSequence: "desc" },
-        skip: offset,
-        take: limit,
-        select: {
-          id: true,
-          eventId: true,
-          eventType: true,
-          assetAddress: true,
-          amount: true,
-          status: true,
-          stellarReference: true,
-          ledgerSequence: true,
-        },
-      });
-      return events;
-    },
-    [`activity-${businessId}-${offset}-${limit}`],
-    { revalidate: ACTIVITY_REVALIDATE_SECONDS }
-  );
+  const fetchPageFn = async () => {
+    const db = getDbClient();
+    const events = await db.financialEvents.findRecentByBusiness(businessId, { offset, limit });
+    return events.map((e) => ({
+      id: e.id,
+      eventId: e.eventId,
+      eventType: e.eventType,
+      assetAddress: e.assetAddress,
+      amount: e.amount,
+      status: e.status,
+      stellarReference: e.stellarReference,
+      ledgerSequence: e.ledgerSequence,
+    }));
+  };
+
+  const fetchPage =
+    process.env.NODE_ENV === "test"
+      ? fetchPageFn
+      : unstable_cache(fetchPageFn, [`activity-${businessId}-${offset}-${limit}`], {
+          revalidate: ACTIVITY_REVALIDATE_SECONDS,
+        });
 
   const events = await fetchPage();
 

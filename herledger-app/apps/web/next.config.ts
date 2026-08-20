@@ -4,7 +4,7 @@ const appUrl = process.env.APP_URL || "http://localhost:3000";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  transpilePackages: ["@herledger/sdk", "@herledger/config"],
+  transpilePackages: ["@herledger/sdk", "@herledger/config", "@herledger/db"],
   experimental: {
     typedRoutes: true,
   },
