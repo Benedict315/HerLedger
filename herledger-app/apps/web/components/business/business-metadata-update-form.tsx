@@ -29,7 +29,7 @@ export function BusinessMetadataUpdateForm({
   const validateHash = (hash: string): boolean => {
     const result = metadataHashSchema.safeParse(hash);
     if (!result.success) {
-      setValidationError(result.error.errors[0].message);
+      setValidationError(result.error.issues[0]?.message ?? "Invalid metadata hash");
       return false;
     }
     setValidationError(null);
