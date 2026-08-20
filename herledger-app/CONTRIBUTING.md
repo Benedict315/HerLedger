@@ -3,7 +3,9 @@
 ## Development workflow
 
 1. Fork the repository and create a feature branch.
-2. Follow the [local setup](README.md#local-setup) instructions.
+2. Follow the [local setup](README.md#local-setup) instructions — either
+   the manual path or `docker compose up` (see
+   [Docker Compose](README.md#option-b-docker-compose)).
 3. Make your changes.
 4. Run `pnpm typecheck`, `pnpm lint`, and `pnpm test` before committing (a pre-commit
    hook also runs a scoped version of these automatically — see
@@ -37,6 +39,32 @@ reported issue and commit again).
 To skip the hook in an emergency (e.g. a WIP commit on a private branch),
 use `git commit --no-verify` — but a PR with lint or type errors will still
 fail CI, so don't rely on this to get around real problems.
+
+## Database seeding
+
+`pnpm db:seed` (`prisma/seed.ts`, or `docker compose exec web pnpm db:seed`
+if you're on the Docker Compose path) fills a fresh database with
+representative data across every model and enum variant — 3 users, 3
+business profiles, 20 financial events, 10 attestations — so you have
+something to look at in the dashboard without indexing real testnet
+activity.
+
+Run it after `pnpm db:migrate:dev` (or once, right after `docker compose
+up` finishes bringing the stack healthy). It's upsert-based and keyed on
+deterministic IDs, so re-running it never creates duplicates or fails
+against data from a previous run — safe to reach for whenever your local
+data looks stale. It intentionally does not create Better Auth
+`Account`/`Session` rows: seeded users are for browsing data, not for
+signing in through the UI.
+
+## Docker Compose
+
+`docker-compose.yml` at the repo root runs the whole stack — Postgres,
+web, and the indexer — for contributors who'd rather not install Node/pnpm/
+PostgreSQL directly. See [README.md's Docker Compose section](README.md#option-b-docker-compose)
+for the commands and the node_modules volume rationale. Source is
+bind-mounted for hot reload; it's a development stack, not a production
+deployment manifest.
 
 ## Commit format
 

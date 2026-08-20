@@ -1,8 +1,10 @@
+import { revalidateTag } from "next/cache";
 import { headers } from "next/headers";
 import { NextRequest } from "next/server";
 
 import { typedJson } from "@/lib/api/route-handler";
 import { auth } from "@/lib/auth/server";
+import { attestationsTag } from "@/lib/data/attestations";
 import { getPrismaClient } from "@/lib/db/client";
 
 import { RequestSchema, type ClaimDescriptionResponse } from "./schema";
@@ -88,6 +90,14 @@ export async function POST(
       update: { claimDescription },
       select: { attestationId: true },
     });
+
+    const event = await prisma.financialEvent.findUnique({
+      where: { eventId },
+      select: { businessId: true },
+    });
+    if (event) {
+      revalidateTag(attestationsTag(event.businessId), "max");
+    }
 
     return typedJson<ClaimDescriptionResponse>({
       data: { attestationId: attestation.attestationId },
