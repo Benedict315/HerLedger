@@ -535,6 +535,10 @@ E2E tests must not depend on Mainnet — use Testnet or mocks.
 
 > **Statement timeout:** the indexer connects to Postgres with a statement_timeout (default 10s) appended to DATABASE_URL at runtime, configurable via DB_STATEMENT_TIMEOUT_MS. This kills a slow or locked query instead of holding its connection (and pool slot) indefinitely. Timed-out queries are logged as errors -- see indexer/src/db/client.ts.
 
+> **Connection pool configuration:** the indexer sizes its Postgres connection pool explicitly. `DB_CONNECTION_LIMIT` (default 10) caps the number of concurrent connections -- the sync job is single-writer, so 10 is a deliberate balance that lets a batch of `createMany`/`$transaction` writes overlap without reserving more connections than the workload can use. `DB_POOL_TIMEOUT_MS` (default 10s) is how long a query waits for a free connection before failing fast. Raise `DB_CONNECTION_LIMIT` only if you observe pool exhaustion during a large catch-up sync; lower it when sharing a database with other services. See indexer/src/db/client.ts.
+
+> **Per-ledger batch writes:** the indexer batches `StellarTransaction` and `FinancialEvent` writes per ledger using `createMany` with `skipDuplicates: true` (PostgreSQL only) instead of issuing per-row `upsert`s -- a single DB round-trip per model per ledger. `skipDuplicates` also makes re-indexing already-synced ledgers safe (duplicates are silently ignored rather than raising unique-constraint errors). Each payment's Stellar transaction plus its derived financial events are written inside a single `prisma.$transaction(...)`, so a partial write failure rolls back the whole payment and the raw ledger never diverges from the events derived from it. Status transitions (Pending → Verified) still flow through the explicit status-update path -- see indexer/src/db/schema/financial-events.ts and indexer/src/index/financial-events.ts.
+
 ### Frontend — Vercel (or equivalent)
 
 | Setting        | Value                     |
