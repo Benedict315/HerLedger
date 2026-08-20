@@ -55,7 +55,7 @@ export async function PUT(req: NextRequest) {
 
   // Generate idempotency key from businessId + metadataHash
   const idempotencyKey = `${businessId}:${metadataHash}`;
-  
+
   // Check for existing idempotent request
   const existing = idempotencyKeys.get(idempotencyKey);
   if (existing) {
