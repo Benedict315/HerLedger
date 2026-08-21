@@ -4,6 +4,7 @@ import { connectWallet, getConnectedAddress, WalletError } from "@herledger/sdk"
 import { useState, useEffect, useRef } from "react";
 
 import { ErrorMessage } from "@/components/ui/error-message";
+import { truncateAddress } from "@/lib/utils/format";
 
 interface WalletConnectProps {
   onConnected: (publicKey: string) => void;
@@ -91,9 +92,10 @@ export function WalletConnect({ onConnected }: WalletConnectProps) {
               wordBreak: "break-all",
               marginBottom: "0.75rem",
             }}
-            aria-label="Connected Stellar address"
+            aria-label={`Connected Stellar address ${address}`}
+            title={address}
           >
-            {address}
+            {truncateAddress(address)}
           </p>
           <button
             onClick={handleDisconnect}
