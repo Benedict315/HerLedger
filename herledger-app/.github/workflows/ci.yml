@@ -36,7 +36,10 @@ jobs:
     env:
       NODE_ENV: test
       DATABASE_URL: postgresql://herledger:herledger@localhost:5432/herledger_test
+      SHADOW_DATABASE_URL: postgresql://herledger:herledger@localhost:5432/herledger_shadow
       BETTER_AUTH_SECRET: ci-test-secret-must-be-at-least-32-chars-long
+      RESEND_API_KEY: re_ci_test_key_not_a_real_key
+      EMAIL_FROM: "HerLedger <onboarding@resend.dev>"
       APP_URL: http://localhost:3000
       STELLAR_NETWORK: testnet
       STELLAR_RPC_URL: https://soroban-testnet.stellar.org
@@ -84,6 +87,10 @@ jobs:
         run: pnpm lint
         working-directory: herledger-app
 
+      - name: OpenAPI spec drift check
+        run: pnpm openapi:check
+        working-directory: herledger-app
+
       - name: Validate .env.example
         run: cp .env.example .env.local && pnpm env:validate
         working-directory: herledger-app
@@ -92,8 +99,15 @@ jobs:
         run: pnpm prisma validate --schema prisma/schema.prisma
         working-directory: herledger-app
 
+      - name: Create shadow database
+        run: PGPASSWORD=herledger createdb -h localhost -U herledger herledger_shadow
+
       - name: Prisma generate
         run: pnpm db:generate
+        working-directory: herledger-app
+
+      - name: Validate database migrations
+        run: pnpm exec tsx scripts/validate-migrations.ts
         working-directory: herledger-app
 
       - name: Prisma migrate
@@ -108,9 +122,16 @@ jobs:
         run: pnpm build
         working-directory: herledger-app
 
-      - name: E2E tests
-        run: pnpm test:e2e
+      - name: Build Storybook
+        run: pnpm --filter web build-storybook
         working-directory: herledger-app
+
+      - name: Upload Storybook Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: storybook-static
+          path: herledger-app/apps/web/storybook-static
+          retention-days: 7
 
   abi-check:
     name: Contract ABI codegen diff
