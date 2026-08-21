@@ -41,11 +41,6 @@ export const serverEnvSchema = z
     APP_URL: z.string().url().describe("The canonical URL of the web application"),
     DATABASE_URL: z.string().min(1).describe("PostgreSQL connection string"),
     BETTER_AUTH_SECRET: z.string().min(32).describe("Secret key for auth session encryption"),
-    RESEND_API_KEY: z.string().min(1).describe("Resend API key, used to send verification emails"),
-    EMAIL_FROM: z
-      .string()
-      .min(1)
-      .describe('Sender address for transactional email, e.g. "HerLedger <verify@herledger.app>"'),
     STELLAR_NETWORK: z.enum(["testnet", "mainnet"]).describe("Stellar network selection"),
     STELLAR_RPC_URL: z
       .string()
@@ -72,14 +67,6 @@ export const serverEnvSchema = z
     message: "Either STELLAR_RPC_URLS or STELLAR_RPC_URL must be set",
     path: ["STELLAR_RPC_URLS"],
   });
-
-type _WithNextPublic<T> = { [K in keyof T as `NEXT_PUBLIC_${string & K}`]: T[K] };
-
-const _withNextPublic = <T extends z.ZodRawShape>(shape: T): _WithNextPublic<T> => {
-  return Object.fromEntries(
-    Object.entries(shape).map(([key, schema]) => [`NEXT_PUBLIC_${key}`, schema])
-  ) as _WithNextPublic<T>;
-};
 
 export const publicEnvSchema = z.object({
   NEXT_PUBLIC_STELLAR_NETWORK: z

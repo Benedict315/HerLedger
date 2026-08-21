@@ -91,7 +91,7 @@ describe("Environment Schema", () => {
       if (!result.success) {
         const issues = formatZodError(result.error);
         expect(issues.length).toBe(1);
-        expect(issues[0]?.Variable).toBe("APP_URL");
+        expect(issues[0]!.Variable).toBe("APP_URL");
       }
     });
   });
