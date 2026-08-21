@@ -1,13 +1,12 @@
 "use client";
 
-import { createContext, useContext } from "react";
-import type { Account } from "@stellar/stellar-sdk";
-import { registerBusiness as realRegisterBusiness } from "@herledger/sdk";
-import type {
-  StellarNetworkConfig,
-  ContractConfig,
-  TransactionResult,
+import {
+  registerBusiness as realRegisterBusiness,
+  pollTransactionStatus as realPollTransactionStatus,
 } from "@herledger/sdk";
+import type { StellarNetworkConfig, ContractConfig, TransactionResult } from "@herledger/sdk";
+import type { Account } from "@stellar/stellar-sdk";
+import { createContext, useContext } from "react";
 
 // ---------------------------------------------------------------------------
 // SdkContext
@@ -34,13 +33,18 @@ export interface SdkClient {
   registerBusiness: (
     params: RegisterBusinessParams,
     config: StellarNetworkConfig,
-    contracts: ContractConfig
+    contracts: ContractConfig,
+    /** Fires with the tx hash as soon as it's submitted, ahead of on-chain confirmation. */
+    onSubmitted?: (hash: string) => void
   ) => Promise<TransactionResult>;
+  /** Resumes polling a previously-submitted tx hash -- see lib/business/pending-registration.ts. */
+  pollTransactionStatus: (hash: string, config: StellarNetworkConfig) => Promise<TransactionResult>;
 }
 
 /** The real SDK, wired up as the context's default so production needs no provider. */
 export const defaultSdkClient: SdkClient = {
   registerBusiness: realRegisterBusiness,
+  pollTransactionStatus: realPollTransactionStatus,
 };
 
 export const SdkContext = createContext<SdkClient>(defaultSdkClient);

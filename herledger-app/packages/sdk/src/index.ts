@@ -46,7 +46,7 @@ export {
 export type { RpcHealthResult } from "./rpc/client.js";
 export { CircuitBreaker } from "./rpc/circuit-breaker.js";
 export type { CircuitState, CircuitBreakerOptions } from "./rpc/circuit-breaker.js";
-export { simulateAndPrepare, submitAndWait } from "./rpc/transactions.js";
+export { simulateAndPrepare, submitAndWait, pollTransactionStatus } from "./rpc/transactions.js";
 
 // Wallet — interface + Freighter adapter
 export type { WalletProvider, WalletConnection } from "./wallet/types.js";
@@ -73,6 +73,7 @@ export {
   decodeU64,
   decodeBool,
   hexToBytes,
+  toHexString32,
 } from "./contracts/encoding.js";
 
 // Contract address registry
