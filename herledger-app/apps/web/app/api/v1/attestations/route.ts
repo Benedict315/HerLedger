@@ -7,8 +7,8 @@ import { auth } from "@/lib/auth/server";
 import { getAttestations } from "@/lib/data/attestations";
 import { getPrismaClient } from "@/lib/db/client";
 
-import { RequestSchema } from "./schema";
-import type { AttestationsResponse, AttestationDto } from "./schema";
+import { RequestSchema } from "../../attestations/schema";
+import type { AttestationsResponse, AttestationDto } from "../../attestations/schema";
 
 const prisma = getPrismaClient();
 
@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
   const parsed = RequestSchema.safeParse({
     includeRevoked: searchParams.get("includeRevoked") ?? undefined,
   });
+
   if (!parsed.success) {
     return typedJson<AttestationsResponse>(
       { data: null, error: { code: "INVALID_PARAMS", message: "Invalid query params" } },

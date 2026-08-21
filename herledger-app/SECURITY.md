@@ -191,6 +191,20 @@ sensitive business/financial detail, so it is encrypted at rest.
   version of the response. Reading a dispute reason back is a capability
   reserved for the party with a legitimate need for it.
 
+## Data Minimisation Policy
+
+HerLedger applies strict data minimisation principles across the UI and API presentation layers:
+
+- **UI Address Truncation**: On-chain 56-character Stellar wallet addresses (`G...`) rendered in UI components are truncated via `truncateAddress()` (e.g., `GBRPYH…CUSIZD`). Full addresses are never displayed raw in DOM text nodes, mitigating screen-scraping and identity linking risks. Full address strings remain accessible in accessible `aria-label` and `title` attributes for tooltips and copy utility.
+- **API Response Field Projection**: API endpoints enforce field-level access control via the `projectFields<T>` utility. Sensitive attestation properties such as `claimHash` are excluded from API response payloads unless the requesting authenticated session is identified as the business owner.
+
+## Log Redaction Policy
+
+To prevent sensitive financial data and PII leakage into log streams and third-party aggregators, server-side log output enforces mandatory redaction rules:
+
+- **Indexer Log Redaction**: The Pino structured logger automatically redacts `amount`, `walletAddress`, and `stellarReference` fields, replacing their values with `[REDACTED]` at standard log levels (`INFO`, `WARN`, `ERROR`).
+- **DEBUG Log Level Scoping**: Full unredacted log fields are strictly restricted to `DEBUG` log level and are only output when `LOG_LEVEL=debug` is explicitly set in non-production environments.
+
 ## Stellar transaction visibility
 
 Stellar transactions are publicly visible on the blockchain. HerLedger does
