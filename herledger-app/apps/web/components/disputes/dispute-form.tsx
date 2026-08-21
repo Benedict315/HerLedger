@@ -97,7 +97,7 @@ export function DisputeForm({ eventId, onSuccess }: DisputeFormProps) {
         // NOT treat the dispute submission itself as failed, since retrying
         // the on-chain call would raise a duplicate dispute.
         try {
-          const saveRes = await fetch("/api/disputes", {
+          const saveRes = await fetch("/api/v1/disputes", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ eventId, reason, reasonHash }),
