@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { indexPayment } from "../financial-events.js";
+import { upsertFinancialEvent } from "../../db/schema/financial-events.js";
+import { upsertStellarTransaction } from "../../db/schema/stellar-transactions.js";
 import { resetMetrics, getMetrics } from "../../observability/index.js";
 import type { ParsedPayment } from "../../types/index.js";
 
@@ -8,15 +10,22 @@ vi.mock("@herledger/sdk", () => ({
   isSupportedAsset: (...args: unknown[]) => isSupportedAssetMock(...args),
 }));
 
-const upsertFinancialEventMock = vi.fn().mockResolvedValue({});
 vi.mock("../../db/schema/financial-events.js", () => ({
-  upsertFinancialEvent: (...args: unknown[]) => upsertFinancialEventMock(...args),
+  upsertFinancialEvent: vi.fn().mockResolvedValue({}),
 }));
 
-const upsertStellarTransactionMock = vi.fn().mockResolvedValue({});
 vi.mock("../../db/schema/stellar-transactions.js", () => ({
-  upsertStellarTransaction: (...args: unknown[]) => upsertStellarTransactionMock(...args),
+  upsertStellarTransaction: vi.fn().mockResolvedValue({}),
 }));
+
+// Aliases so the rest of this file can keep referring to "...Mock" without
+// every call site needing `vi.mocked(...)` -- these are the same vi.fn()
+// instances the mocked modules above export, just referenced directly (both
+// upsertFinancialEvent/upsertStellarTransaction are called with the `tx`
+// object indexPayment's `prisma.$transaction(...)` callback receives, not
+// the outer `prisma` passed into indexPayment -- see mockPrisma below).
+const upsertFinancialEventMock = vi.mocked(upsertFinancialEvent);
+const upsertStellarTransactionMock = vi.mocked(upsertStellarTransaction);
 
 vi.mock("../../db/schema/businesses.js", () => ({
   findBusinessByWallet: vi.fn((_prisma, address: string) => {
@@ -181,7 +190,10 @@ describe("Financial Events Indexing & Metrics", () => {
     await indexPayment(mockPrisma, payment, mockConfig, mockContracts);
 
     expect(upsertStellarTransactionMock).toHaveBeenCalledWith(
-      mockPrisma,
+      // The write happens inside prisma.$transaction(async (tx) => ...), so
+      // this receives the transaction client the callback was invoked with,
+      // not `mockPrisma` itself.
+      expect.anything(),
       expect.objectContaining({
         hash: payment.transactionHash,
         ledgerSequence: payment.ledgerSequence,
@@ -205,7 +217,7 @@ describe("Financial Events Indexing & Metrics", () => {
     await indexPayment(mockPrisma, payment, mockConfig, mockContracts);
 
     expect(upsertFinancialEventMock).toHaveBeenCalledWith(
-      mockPrisma,
+      expect.anything(),
       expect.objectContaining({
         status: "Pending",
         metadataHash: "0".repeat(64),
@@ -333,8 +345,7 @@ describe("Financial Events Indexing & Metrics", () => {
 
     // Fail the second write (sender event). indexPayment must propagate the
     // error out of the transaction so Prisma rolls back the entire payment.
-    const { upsertFinancialEvent } = await import("../../db/schema/financial-events.js");
-    vi.mocked(upsertFinancialEvent)
+    upsertFinancialEventMock
       .mockResolvedValueOnce(undefined)
       .mockRejectedValueOnce(new Error("simulated write failure"));
 

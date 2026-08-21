@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { xdr, nativeToScVal } from "@stellar/stellar-sdk";
 import {
   toHexString32,
@@ -16,6 +16,18 @@ import {
   type HexString32,
 } from "../../index.js";
 import { ValidationError } from "../../errors/index.js";
+
+// scValToNative is wrapped (not replaced) so every other test in this file
+// still gets its real, correct behavior -- only the two tests below that
+// explicitly override its return value via mockReturnValueOnce see a fake
+// result, to exercise decodeI128/decodeU64's defensive non-bigint fallback
+// (scValToNative always returns a bigint for well-formed i128/u64 ScVals in
+// practice, so that branch is otherwise unreachable).
+vi.mock("@stellar/stellar-sdk", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@stellar/stellar-sdk")>();
+  return { ...actual, scValToNative: vi.fn(actual.scValToNative) };
+});
+import { scValToNative } from "@stellar/stellar-sdk";
 
 // ---------------------------------------------------------------------------
 // Round-trip tests for every exported encode/decode function in
@@ -80,6 +92,18 @@ describe("encodeBytes32 / decodeBytes32 round-trip", () => {
     expect(() => toHexString32("ab".repeat(31))).toThrow(ValidationError);
   });
 
+  it("throws ValidationError from encodeBytes32's own defensive length check when the brand is bypassed", () => {
+    // toHexString32 guarantees exactly 64 hex chars (32 bytes) for anything
+    // that reaches encodeBytes32 through the normal API, so this branch is
+    // unreachable via the public surface. It still exists as a defence in
+    // depth against a bypassed brand (e.g. an unchecked `as HexString32`
+    // cast, as tests above already do) -- exercise it directly so that
+    // defence stays covered.
+    const wrongLength = "ab".repeat(16) as HexString32; // 16 bytes, not 32
+    expect(() => encodeBytes32(wrongLength)).toThrow(ValidationError);
+    expect(() => encodeBytes32(wrongLength)).toThrow(/Expected 32-byte hex string/);
+  });
+
   it.each([
     ["all zeros", "0".repeat(64)],
     ["all f's", "f".repeat(64)],
@@ -132,6 +156,12 @@ describe("encodeI128 / decodeI128 round-trip", () => {
     const encoded = encodeI128(MAX_SAFE_PLUS);
     expect(decodeI128(encoded)).toBe(MAX_SAFE_PLUS);
   });
+
+  it("falls back to BigInt(String(native)) when scValToNative doesn't return a bigint", () => {
+    vi.mocked(scValToNative).mockReturnValueOnce(42 as never);
+    const encoded = encodeI128(1n);
+    expect(decodeI128(encoded)).toBe(42n);
+  });
 });
 
 describe("encodeBool / decodeBool round-trip", () => {
@@ -164,6 +194,12 @@ describe("decodeU64", () => {
     // fixture ScVal and confirm decodeU64 returns the same bigint.
     const scval = encodeI128(value);
     expect(decodeU64(scval)).toBe(value);
+  });
+
+  it("falls back to BigInt(String(native)) when scValToNative doesn't return a bigint", () => {
+    vi.mocked(scValToNative).mockReturnValueOnce(7 as never);
+    const encoded = encodeI128(1n);
+    expect(decodeU64(encoded)).toBe(7n);
   });
 });
 
