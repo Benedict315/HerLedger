@@ -41,7 +41,7 @@ const PROTECTED_PREFIXES = ["/dashboard"];
 const AUTH_ROUTES = ["/auth/sign-in", "/auth/sign-up"];
 
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const { pathname, search } = request.nextUrl;
   const appUrl = process.env.APP_URL || "http://localhost:3000";
 
   // CORS preflight handling for /api/ routes
@@ -70,8 +70,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const allowedOrigins = [request.nextUrl.origin];
-
+  const allowedOrigins = [appUrl, request.nextUrl.origin];
   const isProtected = PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix));
   const isAuthRoute = AUTH_ROUTES.includes(pathname);
 
@@ -85,7 +84,7 @@ export async function middleware(request: NextRequest) {
 
   if (isProtected && !session) {
     const signIn = new URL("/auth/sign-in", request.url);
-    const callbackTarget = `${pathname}${request.nextUrl.search}`;
+    const callbackTarget = `${pathname}${search}`;
     const safeCallback = validateCallbackUrl(callbackTarget, allowedOrigins);
     signIn.searchParams.set("callbackUrl", safeCallback ?? "/dashboard");
     return NextResponse.redirect(signIn);
@@ -95,6 +94,18 @@ export async function middleware(request: NextRequest) {
     const requestedCallback = request.nextUrl.searchParams.get("callbackUrl");
     const safeCallback = validateCallbackUrl(requestedCallback, allowedOrigins);
     return NextResponse.redirect(new URL(safeCallback ?? "/dashboard", request.url));
+  }
+
+  // On auth routes when not logged in, drop malicious callbackUrl parameter if present
+  if (isAuthRoute && !session) {
+    const requestedCallback = request.nextUrl.searchParams.get("callbackUrl");
+    if (requestedCallback !== null) {
+      const safeCallback = validateCallbackUrl(requestedCallback, allowedOrigins);
+      if (!safeCallback) {
+        const cleanAuthUrl = new URL(pathname, request.url);
+        return NextResponse.redirect(cleanAuthUrl);
+      }
+    }
   }
 
   return NextResponse.next();
