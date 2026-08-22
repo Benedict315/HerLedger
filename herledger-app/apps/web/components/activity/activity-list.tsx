@@ -12,7 +12,7 @@ import { useEventStream } from "@/hooks/use-event-stream";
 import { apiClient, ApiRequestError } from "@/lib/api/client";
 import { formatAmount } from "@/lib/utils/format";
 
-const DEFAULT_PAGE_SIZE = 20;
+export const PAGE_SIZE = 20;
 const PAGE_SIZE_OPTIONS = [20, 50, 100, 200] as const;
 
 // Rows are virtualized only once a page grows past this many rows; below it,
@@ -31,28 +31,45 @@ const ACTIVITY_KEY = "activity/recent";
 const GRID_TEMPLATE = "1.2fr 1fr 1fr 0.8fr 2fr";
 const HEADER_LABELS = ["Type", "Amount", "Status", "Ledger", "Stellar ref"] as const;
 
-export function ActivityList() {
+interface ActivityListProps {
+  /** Page 0, fetched server-side (see ActivityListServer) so it's available on first paint. */
+  initialEvents: FinancialEventDto[];
+  initialHasMore: boolean;
+}
+
+export function ActivityList({ initialEvents, initialHasMore }: ActivityListProps) {
   const { newEvents } = useEventStream();
   const [offset, setOffset] = useState(0);
-  const [limit, setLimit] = useState<number>(DEFAULT_PAGE_SIZE);
+  const [limit, setLimit] = useState<number>(PAGE_SIZE);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Single source of truth for the current page. SWR dedupes identical keys
   // in-flight and serves previously-fetched pages from cache while a
   // background revalidation runs, so navigating back to a page is instant.
+  // Page 0's server-rendered props seed the cache so first paint has data.
   const key = useMemo(() => [ACTIVITY_KEY, offset, limit] as const, [offset, limit]);
+
+  // exactOptionalPropertyTypes forbids `fallbackData: undefined`, so the
+  // option is only present when seeding the initial page.
+  const swrConfig = {
+    keepPreviousData: true,
+    revalidateOnFocus: false,
+    ...(offset === 0 && limit === PAGE_SIZE
+      ? {
+          fallbackData: {
+            events: initialEvents,
+            pagination: { offset: 0, limit: PAGE_SIZE, count: initialEvents.length },
+          } satisfies ActivityRecentData,
+        }
+      : {}),
+  } satisfies Parameters<typeof useSWR<ActivityRecentData, Error>>[2];
 
   const { data, error, isLoading } = useSWR<ActivityRecentData, Error>(
     key,
     async ([, pageOffset, pageLimit]) =>
       apiClient.activity.recent({ offset: pageOffset, limit: pageLimit }),
-    {
-      // Keep the previous page on screen while the next one loads instead of
-      // flashing a spinner; revalidation happens in the background.
-      keepPreviousData: true,
-      revalidateOnFocus: false,
-    }
+    swrConfig
   );
 
   const { mutate } = useSWRConfig();
@@ -70,7 +87,7 @@ export function ActivityList() {
   // reference (otherwise `?? []` allocates a new array each render and the
   // derived `displayedEvents` memo below would recompute on every render).
   const events = useMemo(() => data?.events ?? [], [data]);
-  const hasMore = data ? data.pagination.count === limit : false;
+  const hasMore = data ? data.pagination.count === limit : initialHasMore;
 
   // Real-time events from the stream are overlaid onto the fetched first page
   // (rather than merged into `events` via an effect) so this is a plain
@@ -91,7 +108,6 @@ export function ActivityList() {
 
   const shouldVirtualize = displayedEvents.length > VIRTUALIZATION_THRESHOLD;
 
-  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual returns live measurement functions that React Compiler cannot memoize
   const rowVirtualizer = useVirtualizer({
     count: displayedEvents.length,
     getScrollElement: () => scrollRef.current,
