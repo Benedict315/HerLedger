@@ -25,21 +25,23 @@ export class WalletError extends Error {
 }
 
 /**
- * Thrown when a Soroban RPC call fails, times out, or returns an unexpected
- * result.
- *
- * @example
- * ```ts
- * try { await getLatestLedger(config); } catch (err) {
- *   if (err instanceof RpcError) console.error(err.message);
- * }
- * ```
+ * Known machine-readable error codes emitted by `RpcError`. Consumers can
+ * branch on `error.code` without string-matching the human-readable message.
  */
+export type RpcErrorCode =
+  | "SIMULATION_FAILED"
+  | "SUBMIT_FAILED"
+  | "TRY_AGAIN_LATER_TIMEOUT"
+  | "POLL_FAILED"
+  | "POLL_TIMEOUT"
+  | "ABORTED";
+
 export class RpcError extends Error {
   readonly kind = "RpcError" as const;
   constructor(
     message: string,
-    public readonly cause?: unknown
+    public readonly cause?: unknown,
+    public readonly code?: RpcErrorCode | string
   ) {
     super(message);
     this.name = "RpcError";
