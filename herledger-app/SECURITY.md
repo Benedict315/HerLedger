@@ -147,6 +147,74 @@ production for real financial data without a professional security review.
   name). It is never persisted, logged, or returned unencrypted except in
   the single API response path described below.
 
+## Edge/middleware session validation
+
+`apps/web/middleware.ts` gates every `/dashboard/*` request and the
+`/auth/sign-in` / `/auth/sign-up` routes. It used to only check whether a
+`better-auth.session_token` cookie was *present* — it never verified the
+cookie cryptographically or checked whether the session it names still
+exists in the database, so a forged or DB-revoked cookie sailed through.
+
+- **Cryptographic + DB-backed check on every protected request**: the
+  middleware now calls `auth.api.getSession({ headers: request.headers })`
+  (Better Auth's own session-resolution endpoint) instead of reading the
+  cookie itself. This verifies the cookie's HMAC signature and, on a cache
+  miss (see below), looks the session up in Postgres. A forged, tampered, or
+  DB-revoked session all resolve to `null` here and are redirected to
+  sign-in the same way a missing cookie is — the middleware can no longer
+  distinguish "wrong secret" from "no cookie" from "session no longer
+  exists", which is the point: none of them should get through.
+- **Runtime**: Next.js 16 runs the middleware/proxy request handler on the
+  Node.js runtime by default (this was an experimental opt-in in 15.2,
+  stable in 15.5, and the default since 16.0 — see
+  `node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/proxy.md`,
+  "Runtime" and "Version history"). That means the Prisma-backed Better
+  Auth adapter already configured in `apps/web/lib/auth/server.ts` works
+  here unmodified. There is no Edge runtime restriction to design around in
+  this app, so no separate edge-compatible auth client, KV session store, or
+  route-handler proxy was needed — `auth.api.getSession()` is called
+  directly.
+- **Session cache / latency trade-off**: Better Auth's `cookieCache`
+  (`apps/web/lib/auth/server.ts`, `session.cookieCache`) is a short-TTL
+  signed & encrypted cookie holding the session/user payload, checked
+  before falling back to Postgres. This is what bounds this middleware's
+  added latency to roughly one DB round trip per TTL window rather than one
+  per request. Its `maxAge` was **30 seconds** (previously 7 days, a
+  leftover from before this cache was used as an authorization gate). The
+  trade-off is explicit: a session revoked directly in the database — not
+  through Better Auth's own sign-out/revoke endpoints, which also clear
+  this cookie — can still be accepted at the edge for up to `maxAge` after
+  the cache was last populated. 30 seconds keeps that window small without
+  forcing a DB hit on every single dashboard navigation. There is no
+  separate Edge KV store in this stack (no Cloudflare/Vercel Edge Config or
+  similar is provisioned), so the cookie cache is the lightest mechanism
+  available that still bounds staleness to a known, documented number.
+- **Latency**: no real p99 benchmark of dashboard cold-load latency was run
+  in this environment (no deployed environment or load-testing harness was
+  available to this change). What bounds latency by design: (1) a session
+  cache hit costs one HMAC verification and zero DB round trips; (2) a
+  cache miss costs a single indexed lookup by session token on the
+  `Session` table — Better Auth's Prisma adapter queries this by its unique
+  token/id index, not a scan; (3) the cache TTL (30s) caps how often a
+  given browser session pays the DB-lookup cost to at most once per 30
+  seconds of active use, regardless of navigation frequency. These bound
+  the *added* latency structurally; they are not a substitute for measuring
+  it against a real Postgres instance under load.
+- **Open redirect on `callbackUrl`**: `apps/web/lib/auth/validate-callback-url.ts`
+  exports `validateCallbackUrl(url, allowedOrigins)`, used by the
+  middleware both when it sets `callbackUrl` on the redirect to sign-in and
+  when it reads an inbound `callbackUrl` to decide where an already
+  authenticated visitor to `/auth/sign-in` should land instead of the
+  default `/dashboard`. It resolves the candidate URL (after decoding it)
+  against an allowlist of same-origin origins and returns `null` — never an
+  error — for anything that doesn't resolve to one of them: protocol-relative
+  URLs (`//evil.com`), absolute URLs to another origin, non-http(s) schemes
+  (`javascript:`, `data:`), backslash-based variants that browsers normalize
+  the same as `//`, and encoded forms of any of the above. Callers always
+  have a safe, hardcoded fallback (`/dashboard`) to use when validation
+  returns `null`. See `apps/web/lib/auth/__tests__/validate-callback-url.test.ts`
+  for the full payload matrix this is tested against.
+
 ## Dispute reason encryption scheme
 
 Only a hash of the dispute reason (`reason_hash: BytesN<32>`) is submitted
