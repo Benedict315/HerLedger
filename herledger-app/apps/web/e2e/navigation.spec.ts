@@ -1,33 +1,40 @@
 import { test, expect } from "@playwright/test";
 
+import {
+  addSessionCookie,
+  cleanupSeed,
+  disconnectSeedClient,
+  seedAuthenticatedUser,
+} from "./helpers/seed";
+
 // ---------------------------------------------------------------------------
 // Covers the responsive dashboard navigation: a persistent sidebar on desktop
 // (>= 768px) and a hamburger-triggered drawer on mobile, with the drawer
 // closing automatically on route change.
+//
+// The dashboard pages are server components that check the session during
+// SSR, so a real (DB-seeded) Better Auth session cookie is required — the
+// same approach as dashboard-perf.spec.ts.
 // ---------------------------------------------------------------------------
 
-test.beforeEach(async ({ context, page }) => {
-  await context.addCookies([
-    {
-      name: "better-auth.session_token",
-      value: "e2e-fixture-session",
-      url: process.env.APP_URL ?? "http://localhost:3000",
-    },
-  ]);
+const seededUserIds: string[] = [];
 
-  // The dashboard summary / SSE stream don't need to exercise real data for a
-  // navigation test — keep them quiet and deterministic.
-  await page.route("**/api/activity/recent*", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        data: { events: [], pagination: { offset: 0, limit: 20, count: 0 } },
-        error: null,
-      }),
-    });
-  });
-  await page.route("**/api/events/stream", async (route) => {
+test.afterAll(async () => {
+  for (const userId of seededUserIds) {
+    await cleanupSeed(userId);
+  }
+  await disconnectSeedClient();
+});
+
+test.beforeEach(async ({ context, page }) => {
+  const { userId, sessionToken } = await seedAuthenticatedUser();
+  seededUserIds.push(userId);
+
+  await addSessionCookie(context, sessionToken, process.env.APP_URL ?? "http://localhost:3000");
+
+  // The dashboard widgets' data doesn't need to be exercised for a navigation
+  // test — keep the SSE stream quiet so no overlay events interfere.
+  await page.route("**/api/v1/events/stream", async (route) => {
     await route.fulfill({
       status: 200,
       headers: { "Content-Type": "text/event-stream" },

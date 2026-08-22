@@ -4,7 +4,7 @@ import { getPublicEnv } from "@herledger/config";
 import { disputeFinancialEvent } from "@herledger/sdk";
 import type { StellarNetworkConfig } from "@herledger/sdk";
 import { Account } from "@stellar/stellar-sdk";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { ErrorMessage } from "@/components/ui/error-message";
 import { FormField } from "@/components/ui/form-field";
@@ -47,6 +47,19 @@ export function DisputeForm({ eventId, onSuccess }: DisputeFormProps) {
   const [saveWarning, setSaveWarning] = useState<string | null>(null);
   const { connectedAddress, refreshWallet } = useWallet();
 
+  // The success view replaces the form entirely, which would otherwise drop
+  // focus back to <body>; move it to the success heading instead so
+  // keyboard/screen-reader users land somewhere meaningful.
+  const successHeadingRef = useRef<HTMLHeadingElement>(null);
+  const hadTxHashRef = useRef(false);
+
+  useEffect(() => {
+    if (txHash && !hadTxHashRef.current) {
+      successHeadingRef.current?.focus();
+    }
+    hadTxHashRef.current = Boolean(txHash);
+  }, [txHash]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -86,7 +99,7 @@ export function DisputeForm({ eventId, onSuccess }: DisputeFormProps) {
         // NOT treat the dispute submission itself as failed, since retrying
         // the on-chain call would raise a duplicate dispute.
         try {
-          const saveRes = await fetch("/api/disputes", {
+          const saveRes = await fetch("/api/v1/disputes", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ eventId, reason, reasonHash }),
@@ -115,7 +128,11 @@ export function DisputeForm({ eventId, onSuccess }: DisputeFormProps) {
     const network = getPublicEnv().NEXT_PUBLIC_STELLAR_NETWORK;
     return (
       <div>
-        <h2 style={{ fontSize: "1.125rem", fontWeight: 600, marginBottom: "0.75rem" }}>
+        <h2
+          ref={successHeadingRef}
+          tabIndex={-1}
+          style={{ fontSize: "1.125rem", fontWeight: 600, marginBottom: "0.75rem" }}
+        >
           Dispute submitted
         </h2>
         <p style={{ color: "var(--muted)", fontSize: "0.9375rem", marginBottom: "1rem" }}>
