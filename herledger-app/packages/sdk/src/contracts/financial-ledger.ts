@@ -27,6 +27,7 @@ import {
   decodeAddress,
   decodeI128,
   decodeU64,
+  toHexString32,
 } from "./encoding.js";
 
 // ---------------------------------------------------------------------------
@@ -127,7 +128,7 @@ export async function getFinancialEvent(
     fee: "100",
     networkPassphrase: config.networkPassphrase,
   })
-    .addOperation(contract.call("get_event", encodeBytes32(eventId)))
+    .addOperation(contract.call("get_event", encodeBytes32(toHexString32(eventId))))
     .setTimeout(30)
     .build();
 
@@ -172,7 +173,7 @@ export async function getBusinessEvents(
     .addOperation(
       contract.call(
         "get_business_events",
-        encodeBytes32(businessId),
+        encodeBytes32(toHexString32(businessId)),
         encodeU32(offset),
         encodeU32(limit)
       )
@@ -276,13 +277,13 @@ export async function recordFinancialEvent(
     .addOperation(
       contract.call(
         "record_event",
-        encodeBytes32(params.eventId),
-        encodeBytes32(params.businessId),
+        encodeBytes32(toHexString32(params.eventId)),
+        encodeBytes32(toHexString32(params.businessId)),
         xdr.ScVal.scvVec([xdr.ScVal.scvSymbol(params.eventType)]),
         encodeAddress(params.asset),
         encodeI128(params.amount),
-        encodeBytes32(params.stellarReference),
-        encodeBytes32(params.metadataHash)
+        encodeBytes32(toHexString32(params.stellarReference)),
+        encodeBytes32(toHexString32(params.metadataHash))
       )
     )
     .setTimeout(300)
@@ -341,9 +342,9 @@ export async function disputeFinancialEvent(
     .addOperation(
       contract.call(
         "dispute_event",
-        encodeBytes32(params.eventId),
+        encodeBytes32(toHexString32(params.eventId)),
         encodeAddress(params.owner),
-        encodeBytes32(params.reasonHash)
+        encodeBytes32(toHexString32(params.reasonHash))
       )
     )
     .setTimeout(300)
@@ -391,7 +392,7 @@ export async function verifyFinancialEvent(
     fee: "1000000",
     networkPassphrase: config.networkPassphrase,
   })
-    .addOperation(contract.call("verify_event", encodeBytes32(params.eventId)))
+    .addOperation(contract.call("verify_event", encodeBytes32(toHexString32(params.eventId))))
     .setTimeout(300)
     .build();
 
@@ -442,9 +443,9 @@ export async function resolveFinancialEvent(
     .addOperation(
       contract.call(
         "resolve_dispute",
-        encodeBytes32(params.eventId),
+        encodeBytes32(toHexString32(params.eventId)),
         encodeBool(params.valid),
-        encodeBytes32(params.resolutionHash)
+        encodeBytes32(toHexString32(params.resolutionHash))
       )
     )
     .setTimeout(300)
@@ -494,7 +495,7 @@ export async function revokeFinancialEvent(
     networkPassphrase: config.networkPassphrase,
   })
     .addOperation(
-      contract.call("revoke_event", encodeBytes32(params.eventId), encodeBytes32(params.reasonHash))
+      contract.call("revoke_event", encodeBytes32(toHexString32(params.eventId)), encodeBytes32(toHexString32(params.reasonHash)))
     )
     .setTimeout(300)
     .build();

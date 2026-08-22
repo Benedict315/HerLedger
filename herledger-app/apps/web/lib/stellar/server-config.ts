@@ -1,9 +1,13 @@
 import {
   getStellarNetworkConfig,
   getContractConfig as getRawContractConfig,
-} from "@herledger/config";
-import { registerCurrentNetworkAddresses, buildContractConfig } from "@herledger/sdk/contracts";
-import type { ContractConfig, StellarNetworkConfig } from "@herledger/sdk/types";
+} from "@herledger/config/server";
+import {
+  registerCurrentNetworkAddresses,
+  buildContractConfig,
+  type ContractConfig,
+  type StellarNetworkConfig,
+} from "@herledger/sdk";
 
 // ---------------------------------------------------------------------------
 // Server-only Stellar network + contract config, for API routes that need to

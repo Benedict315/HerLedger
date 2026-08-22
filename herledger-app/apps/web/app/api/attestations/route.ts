@@ -1,12 +1,14 @@
 import { headers } from "next/headers";
 import { NextRequest } from "next/server";
-import { RequestSchema } from "./schema";
 
+import { projectFields } from "@/lib/api/projection";
 import { typedJson } from "@/lib/api/route-handler";
 import { auth } from "@/lib/auth/server";
+import { getAttestations } from "@/lib/data/attestations";
 import { getPrismaClient } from "@/lib/db/client";
 
-import type { AttestationsResponse } from "./schema";
+import { RequestSchema } from "./schema";
+import type { AttestationsResponse, AttestationDto } from "./schema";
 
 const prisma = getPrismaClient();
 
@@ -34,24 +36,34 @@ export async function GET(req: NextRequest) {
     where: { userId: session.user.id },
     select: { businessId: true },
   });
-  if (!profile) {
-    return typedJson<AttestationsResponse>({ data: { attestations: [] }, error: null });
-  }
 
-  const events = await prisma.financialEvent.findMany({
-    where: { businessId: profile.businessId },
-    select: {
-      eventId: true,
-      attestations: {
-        ...(parsed.data.includeRevoked ? {} : { where: { status: "Active" as const } }),
-        orderBy: { ledgerSequence: "desc" },
-      },
-    },
-  });
+  const isOwner = Boolean(profile?.businessId);
+  const data = await getAttestations(profile?.businessId ?? null, parsed.data.includeRevoked);
 
-  const attestations = events
-    .flatMap((event) => event.attestations)
-    .sort((a, b) => b.ledgerSequence - a.ledgerSequence);
+  const allowedFields: (keyof AttestationDto)[] = isOwner
+    ? [
+        "id",
+        "attestationId",
+        "eventId",
+        "attesterAddress",
+        "claimHash",
+        "claimDescription",
+        "status",
+        "ledgerSequence",
+      ]
+    : [
+        "id",
+        "attestationId",
+        "eventId",
+        "attesterAddress",
+        "claimDescription",
+        "status",
+        "ledgerSequence",
+      ];
 
-  return typedJson<AttestationsResponse>({ data: { attestations }, error: null });
+  const projectedAttestations = data.attestations.map((att) =>
+    projectFields(att, allowedFields)
+  ) as AttestationDto[];
+
+  return typedJson<AttestationsResponse>({ data: { attestations: projectedAttestations }, error: null });
 }

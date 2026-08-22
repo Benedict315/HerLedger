@@ -10,8 +10,8 @@ import { processTransactionForWallet } from "../../jobs/process-transaction.js";
 import {
   getStellarNetworkConfig,
   getContractConfig as getRawContractConfig,
-} from "@herledger/config";
-import { registerCurrentNetworkAddresses, buildContractConfig } from "@herledger/sdk/contracts";
+} from "@herledger/config/server";
+import { registerCurrentNetworkAddresses, buildContractConfig } from "@herledger/sdk";
 
 // ---------------------------------------------------------------------------
 // Admin: dead-letter replay
