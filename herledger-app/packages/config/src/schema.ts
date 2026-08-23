@@ -59,6 +59,10 @@ export const serverEnvSchema = z
     STELLAR_HORIZON_URL: z.string().url().describe("Horizon API endpoint URL"),
     STELLAR_NETWORK_PASSPHRASE: z.string().min(1).describe("Stellar network passphrase"),
     INDEXER_API_URL: z.string().url().describe("Internal URL for the indexer service"),
+    INDEXER_API_SECRET: z
+      .string()
+      .min(32)
+      .describe("Shared secret for authenticating requests to the indexer API"),
     BUSINESS_REGISTRY_CONTRACT_ID: stellarContractId.describe(
       "Contract ID for the Business Registry"
     ),

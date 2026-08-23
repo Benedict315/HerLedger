@@ -290,6 +290,75 @@ To prevent sensitive financial data and PII leakage into log streams and third-p
 - **Indexer Log Redaction**: The Pino structured logger automatically redacts `amount`, `walletAddress`, and `stellarReference` fields, replacing their values with `[REDACTED]` at standard log levels (`INFO`, `WARN`, `ERROR`).
 - **DEBUG Log Level Scoping**: Full unredacted log fields are strictly restricted to `DEBUG` log level and are only output when `LOG_LEVEL=debug` is explicitly set in non-production environments.
 
+## Indexer API Authentication
+
+The Fastify indexer API (`indexer/src/api/`) is protected by shared-secret authentication to prevent unauthorized access to sensitive financial data.
+
+### Authentication Model
+
+**Shared-Secret Authentication:**
+- All protected routes require an `X-Indexer-Secret` header matching the `INDEXER_API_SECRET` environment variable
+- The secret must be at least 32 characters (enforced by `packages/config/src/schema.ts`)
+- Missing or invalid secrets return HTTP 401 with structured error responses
+- Public routes (health checks, metrics, OpenAPI spec) are exempt from authentication
+
+**Trade-off: Shared-Secret vs mTLS:**
+- Shared-secret was chosen over mTLS for operational simplicity
+- Suitable for internal service-to-service communication in trusted networks
+- mTLS would provide stronger security for untrusted networks but requires certificate management infrastructure
+- For HerLedger's deployment model (internal indexer service), shared-secret provides sufficient security with lower complexity
+
+### CORS Configuration
+
+- CORS is explicitly configured via `@fastify/cors` to allow only the `INDEXER_API_URL` origin
+- This prevents cross-origin requests from unauthorized domains
+- Allowed headers include `X-Indexer-Secret`, `X-Correlation-Id`, and `X-Request-Id`
+- Credentials are enabled for future cookie-based authentication if needed
+
+### Input Validation
+
+All path and query parameters are validated with Zod schemas before processing:
+- `businessId`: Must be a 64-character hexadecimal string
+- `hash`: Must be exactly 64 characters (transaction hash)
+- `errorId`: Alphanumeric with underscores and hyphens, max 100 characters
+- Pagination parameters (`offset`, `limit`) are coerced to integers with bounds checking
+- Invalid inputs return HTTP 400 with structured error messages
+
+### Secret Rotation
+
+A rotation script is provided at `scripts/rotate-indexer-secret.ts`:
+- Generates a new 32-byte cryptographically secure random secret
+- Updates both root `.env` and `indexer/.env` files atomically
+- Creates backup files with `.backup` extension
+- Run via `pnpm rotate:indexer-secret`
+- After rotation, restart the indexer service to pick up the new secret
+
+### Implementation Details
+
+**Authentication Middleware** (`indexer/src/api/auth.ts`):
+- `createAuthMiddleware(secret)` returns a Fastify onRequest hook
+- Validates the `X-Indexer-Secret` header on every request
+- Handles both string and array header values defensively
+- Returns 401 with clear error codes (`UNAUTHORIZED`)
+
+**Public Route Detection**:
+- `isPublicRoute(url)` identifies endpoints that don't require authentication
+- Includes `/health`, `/v1/health`, `/metrics`, `/openapi.json`, `/v1/openapi.json`
+- Applied in `indexer/src/api/server.ts` before the auth middleware
+
+**Server Setup** (`indexer/src/api/server.ts`):
+- Registers CORS plugin with origin restriction
+- Applies auth middleware globally with public route exemption
+- Fails fast if `INDEXER_API_SECRET` is not configured
+
+### Security Guarantees
+
+- **No secret leakage**: The secret is never logged or exposed in error responses
+- **Fail-closed**: Missing secret configuration causes server startup to fail
+- **Origin restriction**: CORS prevents browser-based unauthorized access
+- **Input sanitization**: Zod validation prevents injection attacks via path parameters
+- **Consistent error responses**: All errors follow the `{ data, error }` envelope pattern
+
 ## Stellar transaction visibility
 
 Stellar transactions are publicly visible on the blockchain. HerLedger does
