@@ -49,6 +49,7 @@ describe("auth CSRF protection (sign-in/email)", () => {
         "sec-fetch-site": "cross-site",
         "sec-fetch-mode": "navigate",
         "sec-fetch-dest": "document",
+        "x-forwarded-for": `198.51.100.${Math.floor(Math.random() * 200) + 1}`,
       },
       body: JSON.stringify({ email: "victim@example.com", password: "irrelevant123" }),
     });
@@ -67,6 +68,7 @@ describe("auth CSRF protection (sign-in/email)", () => {
         "sec-fetch-site": "cross-site",
         "sec-fetch-mode": "cors",
         "sec-fetch-dest": "empty",
+        "x-forwarded-for": `203.0.113.${Math.floor(Math.random() * 200) + 1}`,
       },
       body: JSON.stringify({ email: "victim@example.com", password: "irrelevant123" }),
     });
@@ -85,6 +87,7 @@ describe("auth CSRF protection (sign-in/email)", () => {
         "sec-fetch-site": "same-origin",
         "sec-fetch-mode": "cors",
         "sec-fetch-dest": "empty",
+        "x-forwarded-for": `192.0.2.${Math.floor(Math.random() * 200) + 1}`,
       },
       body: JSON.stringify({ email: "nobody@example.com", password: "irrelevant123" }),
     });
