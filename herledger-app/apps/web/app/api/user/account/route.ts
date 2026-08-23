@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/server";
 import { getDbClient } from "@herledger/db";
+import { NextResponse } from "next/server";
+
+import { auth } from "@/lib/auth/server";
 
 export async function DELETE(request: Request) {
   try {

@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
 import { getAttestation } from "@herledger/sdk";
-import { auth } from "@/lib/auth/server";
 import { headers } from "next/headers";
-import { getServerStellarConfig, getServerContractConfig } from "@/lib/stellar/server-config";
+import { NextRequest, NextResponse } from "next/server";
+
+import { auth } from "@/lib/auth/server";
 import { getPrismaClient } from "@/lib/db/client";
+import { getServerStellarConfig, getServerContractConfig } from "@/lib/stellar/server-config";
 
 const prisma = getPrismaClient();
 

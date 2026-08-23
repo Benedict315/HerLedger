@@ -1,9 +1,9 @@
+import { getDbClient } from "@herledger/db";
 import { headers } from "next/headers";
 import { NextRequest } from "next/server";
 
 import { typedJson } from "@/lib/api/route-handler";
 import { auth } from "@/lib/auth/server";
-import { getDbClient } from "@herledger/db";
 
 interface CurrentBusinessResponse {
   data: {
@@ -17,7 +17,7 @@ interface CurrentBusinessResponse {
   error: { code: string; message: string } | null;
 }
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) {
     return typedJson<CurrentBusinessResponse>(

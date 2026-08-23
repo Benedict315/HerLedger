@@ -1,3 +1,5 @@
+import { getDbClient } from "@herledger/db";
+import { getAttestation } from "@herledger/sdk";
 import { revalidateTag } from "next/cache";
 import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
@@ -5,8 +7,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/server";
 import { attestationsTag } from "@/lib/data/attestations";
 import { getServerStellarConfig, getServerContractConfig } from "@/lib/stellar/server-config";
-import { getDbClient } from "@herledger/db";
-import { getAttestation } from "@herledger/sdk";
 
 export async function POST(
   _req: NextRequest,

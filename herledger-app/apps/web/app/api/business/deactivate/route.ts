@@ -1,3 +1,5 @@
+import { getDbClient } from "@herledger/db";
+import { deactivateBusiness } from "@herledger/sdk";
 import { headers } from "next/headers";
 import { NextRequest } from "next/server";
 import { z } from "zod";
@@ -6,8 +8,6 @@ import { typedJson } from "@/lib/api/route-handler";
 import { auth } from "@/lib/auth/server";
 import { getAccount } from "@/lib/stellar/account";
 import { getContractConfig, getStellarNetworkConfig } from "@/lib/stellar/config";
-import { getDbClient } from "@herledger/db";
-import { deactivateBusiness } from "@herledger/sdk";
 
 const RequestSchema = z.object({
   businessId: z.string().min(1),

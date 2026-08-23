@@ -17,14 +17,15 @@ vi.mock("@/lib/auth/server", () => ({
   },
 }));
 
-const findFirstMock = vi.fn();
+const { findFirstMock, getAttestationsMock } = vi.hoisted(() => ({
+  findFirstMock: vi.fn(),
+  getAttestationsMock: vi.fn(),
+}));
 vi.mock("@/lib/db/client", () => ({
   getPrismaClient: () => ({
     businessProfile: { findFirst: findFirstMock },
   }),
 }));
-
-const getAttestationsMock = vi.fn();
 vi.mock("@/lib/data/attestations", () => ({
   getAttestations: (...args: unknown[]) => getAttestationsMock(...args),
 }));

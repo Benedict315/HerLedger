@@ -1,4 +1,5 @@
 import { expect } from "@playwright/test";
+
 import { test } from "./fixtures/auth";
 import { mockFreighter } from "./helpers/mock-wallet";
 import { ActivityPage } from "./page-objects/ActivityPage";
@@ -17,10 +18,10 @@ test.describe("Event Lifecycle Flow", () => {
         id: "biz_123",
         userId: "usr_test123", // the user seeded in auth.ts
         businessId: "onchain_biz_id",
-        name: "Test Business",
+        displayName: "Test Business",
         walletAddress: "GBSOMEBUSINESSAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
         metadataHash: "hash",
-        isActive: true,
+        active: true,
         createdAt: new Date(),
         updatedAt: new Date(),
       }

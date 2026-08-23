@@ -1,3 +1,4 @@
+import { getDbClient } from "@herledger/db";
 import { revalidateTag } from "next/cache";
 import { headers } from "next/headers";
 import { NextRequest } from "next/server";
@@ -5,7 +6,6 @@ import { NextRequest } from "next/server";
 import { typedJson } from "@/lib/api/route-handler";
 import { auth } from "@/lib/auth/server";
 import { attestationsTag } from "@/lib/data/attestations";
-import { getDbClient } from "@herledger/db";
 
 import { RequestSchema, type ClaimDescriptionResponse } from "./schema";
 

@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { WalletConnect } from "@/components/wallet/wallet-connect";
-import { FormField } from "@/components/ui/form-field";
-import { SubmitButton } from "@/components/ui/submit-button";
+
 import { ErrorMessage } from "@/components/ui/error-message";
+import { FormField } from "@/components/ui/form-field";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { SubmitButton } from "@/components/ui/submit-button";
+import { WalletConnect } from "@/components/wallet/wallet-connect";
 import { useRegistrationFlow, type RegistrationStep } from "@/hooks/use-registration-flow";
 
 // ---------------------------------------------------------------------------

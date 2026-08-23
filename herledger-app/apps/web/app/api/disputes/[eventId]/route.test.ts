@@ -1,8 +1,8 @@
+import { createMockDbClient, resetDbClient, setDbClient } from "@herledger/db";
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { auth } from "@/lib/auth/server";
-import { createMockDbClient, resetDbClient, setDbClient } from "@herledger/db";
 
 import { GET } from "./route";
 
@@ -21,8 +21,11 @@ vi.mock("@herledger/config/server", () => ({
   getServerEnv: vi.fn(() => ({ BETTER_AUTH_SECRET: "test-secret-at-least-32-characters" })),
 }));
 
-const decryptDisputeReasonMock = vi.fn();
-class MockDisputeDecryptionError extends Error {}
+const { decryptDisputeReasonMock, MockDisputeDecryptionError } = vi.hoisted(() => {
+  const mock = vi.fn();
+  class Err extends Error {}
+  return { decryptDisputeReasonMock: mock, MockDisputeDecryptionError: Err };
+});
 vi.mock("@/lib/crypto/dispute-encryption", () => ({
   decryptDisputeReason: (...args: unknown[]) => decryptDisputeReasonMock(...args),
   DisputeDecryptionError: MockDisputeDecryptionError,

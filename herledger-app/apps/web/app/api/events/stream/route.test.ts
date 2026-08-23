@@ -1,7 +1,7 @@
+import { createMockDbClient, resetDbClient, setDbClient } from "@herledger/db";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { auth } from "@/lib/auth/server";
-import { createMockDbClient, resetDbClient, setDbClient } from "@herledger/db";
 
 import { GET } from "./route";
 

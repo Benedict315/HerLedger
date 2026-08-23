@@ -17,9 +17,11 @@ vi.mock("@/lib/auth/server", () => ({
   },
 }));
 
-const businessFindFirstMock = vi.fn();
-const disputeFindManyMock = vi.fn();
-const disputeCountMock = vi.fn();
+const { businessFindFirstMock, disputeFindManyMock, disputeCountMock } = vi.hoisted(() => ({
+  businessFindFirstMock: vi.fn(),
+  disputeFindManyMock: vi.fn(),
+  disputeCountMock: vi.fn(),
+}));
 vi.mock("@/lib/db/client", () => ({
   getPrismaClient: () => ({
     businessProfile: { findFirst: businessFindFirstMock },

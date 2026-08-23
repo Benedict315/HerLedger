@@ -1,6 +1,7 @@
-import { typedJson } from "@/lib/api/route-handler";
-import { checkRpcHealth } from "@herledger/sdk";
 import { getStellarNetworkConfig } from "@herledger/config/server";
+import { checkRpcHealth } from "@herledger/sdk";
+
+import { typedJson } from "@/lib/api/route-handler";
 
 import type { HealthResponse } from "./schema";
 

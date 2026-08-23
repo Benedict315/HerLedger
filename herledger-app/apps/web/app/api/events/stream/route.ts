@@ -1,8 +1,8 @@
+import { getDbClient } from "@herledger/db";
 import { headers } from "next/headers";
 import { NextRequest } from "next/server";
 
 import { auth } from "@/lib/auth/server";
-import { getDbClient } from "@herledger/db";
 
 export const dynamic = "force-dynamic";
 

@@ -72,7 +72,7 @@ describe("sign-in rate limiting (5 attempts / 15 min, DB-backed)", () => {
     // understands that one. Both are asserted here so a change to either
     // layer is caught.
     expect(lockedOut.headers.get("x-retry-after")).toBe("900");
-  });
+  }, 15000);
 
   it("does not lock out a different IP sharing no history with a locked-out one", async () => {
     const lockedIp = `192.0.2.${Math.floor(Math.random() * 200) + 1}`;

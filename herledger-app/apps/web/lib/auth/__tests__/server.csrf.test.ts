@@ -14,7 +14,7 @@ beforeAll(async () => {
   Object.assign(process.env, {
     NODE_ENV: "test",
     APP_URL: "http://localhost:3000",
-    DATABASE_URL: "postgresql://herledger:herledger@localhost:5432/herledger_test",
+    DATABASE_URL: process.env["DATABASE_URL"] ?? "postgresql://herledger:herledger@localhost:5432/herledger_test",
     BETTER_AUTH_SECRET: "test-secret-must-be-at-least-32-characters-long",
     RESEND_API_KEY: "test-resend-key",
     EMAIL_FROM: "HerLedger <test@herledger.test>",

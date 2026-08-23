@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { checkRpcHealth } from "@herledger/sdk";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GET } from "./route";
 
@@ -9,8 +10,6 @@ vi.mock("@herledger/config/server", () => ({
 vi.mock("@herledger/sdk", () => ({
   checkRpcHealth: vi.fn(),
 }));
-
-import { checkRpcHealth } from "@herledger/sdk";
 
 describe("GET /api/health", () => {
   beforeEach(() => {

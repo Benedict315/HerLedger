@@ -1,11 +1,11 @@
 import { getServerEnv } from "@herledger/config/server";
+import { getDbClient } from "@herledger/db";
 import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/lib/auth/server";
 import { decryptDisputeReason, DisputeDecryptionError } from "@/lib/crypto/dispute-encryption";
 import { deriveDisputeLifecycleStatus } from "@/lib/disputes/status";
-import { getDbClient } from "@herledger/db";
 
 interface RouteContext {
   params: Promise<{ eventId: string }>;
