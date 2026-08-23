@@ -14,6 +14,7 @@ export default defineConfig({
     setupFiles: ["./vitest.setup.ts"],
     testTimeout: 15000,
     hookTimeout: 15000,
+    pool: "forks",
     typecheck: {
       enabled: true,
       include: ["**/*.type-test.ts"],
