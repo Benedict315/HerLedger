@@ -137,6 +137,8 @@ async function syncCycle(
 
           if (!isSuccessfulTransaction(tx)) continue;
 
+          let transactionProcessedSuccessfully = false;
+
           try {
             const outcome = await processTransactionForWallet(
               tx,
@@ -150,9 +152,12 @@ async function syncCycle(
             } else {
               recordSkipped();
             }
+            transactionProcessedSuccessfully = true;
           } catch (err) {
             recordFailed();
             recordDeadLettered();
+
+            let deadLetterWriteSucceeded = false;
             try {
               await writeDeadLetter(prisma, {
                 rawXdr: tx.envelope_xdr,
@@ -160,6 +165,7 @@ async function syncCycle(
                 message: err instanceof Error ? err.message : String(err),
                 context: { walletAddress, ledgerSequence: ledger },
               });
+              deadLetterWriteSucceeded = true;
             } catch (dlErr) {
               // If we can't even write the dead-letter row, at minimum log it
               // loudly -- this event's failure would otherwise be silently lost.
@@ -174,23 +180,32 @@ async function syncCycle(
                 "Failed to write dead letter row"
               );
             }
+
             logger.error(
               {
                 job: "sync-ledger",
                 event: "transaction-failed",
                 transactionHash: tx.hash,
                 error: err instanceof Error ? err.message : String(err),
+                deadLetterWriteSucceeded,
               },
               "Transaction processing failed"
             );
+
+            // Only mark the ledger as processed if we successfully wrote the dead letter.
+            // If dead-letter write failed, don't add to processedLedgers so the
+            // ledger gets retried on the next cycle instead of being silently dropped.
+            if (deadLetterWriteSucceeded) {
+              transactionProcessedSuccessfully = true;
+            }
           }
 
-          if (ledger > maxProcessedLedger) {
+          // Only add to processedLedgers if both processing and error tracking succeeded.
+          // This prevents silent loss of events when the DB is temporarily unavailable.
+          if (transactionProcessedSuccessfully && ledger > maxProcessedLedger) {
             maxProcessedLedger = ledger;
+            processedLedgers.add(ledger);
           }
-
-          // Track this ledger for per-ledger checkpointing
-          processedLedgers.add(ledger);
         }
 
         if (!nextTxCursor || transactions.length === 0) break;

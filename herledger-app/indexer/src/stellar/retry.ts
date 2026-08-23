@@ -69,10 +69,7 @@ export async function retryWithBackoff<T>(
   }
 
   // Should never reach here due to throw in final attempt
-  throw new IndexerError(
-    `${operationName} failed after ${cfg.maxAttempts} attempts`,
-    lastError
-  );
+  throw new IndexerError(`${operationName} failed after ${cfg.maxAttempts} attempts`, lastError);
 }
 
 /**
@@ -95,34 +92,66 @@ function calculateBackoffDelay(attempt: number, cfg: Required<RetryConfig>): num
  * Determine if an error is permanent (should not retry) or transient (should retry).
  * Permanent: client errors (4xx), schema/XDR parsing errors, contract decode errors.
  * Transient: network errors, timeouts, server errors (5xx), rate limits (429).
+ *
+ * Matching strategy:
+ * 1. Check for error types/keywords first (less prone to false matches)
+ * 2. Then check for HTTP status codes in structured format (e.g., "HTTP 400")
+ * 3. Avoid free-text numeric substring matching (e.g., "400ms" in timeout message)
  */
 function isPermanentError(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
 
   const message = err.message.toLowerCase();
 
-  // Permanent errors
-  if (message.includes("400") || message.includes("bad request")) return true;
-  if (message.includes("401") || message.includes("unauthorized")) return true;
-  if (message.includes("403") || message.includes("forbidden")) return true;
-  if (message.includes("404") || message.includes("not found")) return true;
+  // Transient errors (check these first to avoid false positives)
+  // Keywords like "timeout" must be checked before numeric codes, to prevent
+  // "Request timed out after 30400ms" from matching "400" first
+  if (message.includes("timeout")) return false;
+  if (message.includes("econnrefused")) return false;
+  if (message.includes("econnreset")) return false;
+  if (message.includes("enotfound")) return false;
+  if (message.includes("ehostunreach")) return false;
+  if (message.includes("enetunreach")) return false;
+  if (message.includes("rate")) return false;
+  if (message.includes("too many requests")) return false;
+  if (message.includes("service unavailable")) return false;
+  if (message.includes("bad gateway")) return false;
+  if (message.includes("gateway timeout")) return false;
 
-  // XDR/contract decode errors are permanent
-  if (message.includes("xdr") || message.includes("decode")) return true;
+  // Transient server errors (5xx) - check after keywords
+  // Match "HTTP 5xx", "5xx error", "error 5xx" patterns to avoid false positives
+  if (/\b(http\s+)?5\d{2}\b/i.test(message)) return false;
+  if (/\bserver\s+error\b/i.test(message)) return false;
+
+  // Rate limit (429) - structured matching
+  if (/\b(http\s+)?429\b/i.test(message)) return false;
+  if (/\b(http\s+)?502\b/i.test(message)) return false;
+  if (/\b(http\s+)?503\b/i.test(message)) return false;
+
+  // Permanent errors (client errors and parsing errors)
+  // Check keyword-based errors first (XDR, contract, parsing)
+  if (message.includes("xdr")) return true;
+  if (message.includes("decode")) return true;
   if (message.includes("invalid contract")) return true;
   if (message.includes("malformed")) return true;
+  if (message.includes("parse error")) return true;
+  if (message.includes("syntax error")) return true;
 
-  // Transient errors that should retry
-  if (message.includes("econnrefused")) return false;
-  if (message.includes("enotfound")) return false;
-  if (message.includes("timeout")) return false;
-  if (message.includes("500") || message.includes("server error")) return false;
-  if (message.includes("502") || message.includes("bad gateway")) return false;
-  if (message.includes("503") || message.includes("service unavailable")) return false;
-  if (message.includes("429") || message.includes("too many requests")) return false;
-  if (message.includes("rate")) return false;
+  // Client errors (4xx) - structured matching to avoid "400ms" false positives
+  // Match "HTTP 400", "400 bad request", "error 400", etc.
+  if (/\b(http\s+)?400\b/i.test(message)) return true;
+  if (/\b(http\s+)?401\b/i.test(message)) return true;
+  if (/\b(http\s+)?403\b/i.test(message)) return true;
+  if (/\b(http\s+)?404\b/i.test(message)) return true;
+  if (/\b(http\s+)?4\d{2}\b/i.test(message)) return true;
 
-  // Default: treat as transient
+  // Explicit error types
+  if (message.includes("bad request")) return true;
+  if (message.includes("unauthorized")) return true;
+  if (message.includes("forbidden")) return true;
+  if (message.includes("not found")) return true;
+
+  // Default: treat as transient (fail after max retries, but retry initially)
   return false;
 }
 

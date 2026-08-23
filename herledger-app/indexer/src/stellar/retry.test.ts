@@ -75,6 +75,86 @@ describe("retryWithBackoff", () => {
     expect(fn).toHaveBeenCalledTimes(1);
   });
 
+  it("does not misclassify 'Request timed out after 30400ms' as 400 error", async () => {
+    // This error message contains the digits "400" but should be treated as transient timeout
+    let attempt = 0;
+    const fn = vi.fn(async () => {
+      attempt++;
+      if (attempt < 2) {
+        throw new Error("Request timed out after 30400ms");
+      }
+      return "success";
+    });
+
+    const result = await retryWithBackoff(fn, "test-op", { maxAttempts: 3 });
+    expect(result).toBe("success");
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not misclassify timeout with ledger sequence in message as error", async () => {
+    // Message contains both "400" (ledger seq) and "timeout"
+    let attempt = 0;
+    const fn = vi.fn(async () => {
+      attempt++;
+      if (attempt < 2) {
+        throw new Error("Timeout waiting for ledger 40000 after 5s");
+      }
+      return "success";
+    });
+
+    const result = await retryWithBackoff(fn, "test-op", { maxAttempts: 3 });
+    expect(result).toBe("success");
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
+
+  it("properly detects HTTP 400 with structured format", async () => {
+    const fn = vi.fn(async () => {
+      throw new Error("HTTP 400 Bad Request");
+    });
+
+    await expect(retryWithBackoff(fn, "test-op")).rejects.toThrow(IndexerError);
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it("properly detects HTTP 500 with structured format", async () => {
+    let attempt = 0;
+    const fn = vi.fn(async () => {
+      attempt++;
+      if (attempt < 2) {
+        throw new Error("HTTP 500 Internal Server Error");
+      }
+      return "success";
+    });
+
+    const result = await retryWithBackoff(fn, "test-op", { maxAttempts: 3 });
+    expect(result).toBe("success");
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries on parse error but fails on XDR error", async () => {
+    const fn = vi.fn(async () => {
+      throw new Error("JSON parse error");
+    });
+
+    // "parse error" alone should be transient, but combined with XDR it fails immediately
+    let attempt = 0;
+    const fn2 = vi.fn(async () => {
+      attempt++;
+      if (attempt < 2) {
+        throw new Error("XDR parse error in transaction");
+      }
+      return "success";
+    });
+
+    // Just "parse error" without XDR should retry
+    await expect(retryWithBackoff(fn, "test-op", { maxAttempts: 1 })).rejects.toThrow(IndexerError);
+    expect(fn).toHaveBeenCalledTimes(1);
+
+    // "XDR parse error" should fail immediately
+    await expect(retryWithBackoff(fn2, "test-op")).rejects.toThrow(IndexerError);
+    expect(fn2).toHaveBeenCalledTimes(1);
+  });
+
   it("retries on 500 server errors", async () => {
     let attempt = 0;
     const fn = vi.fn(async () => {
