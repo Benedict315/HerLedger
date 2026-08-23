@@ -15,6 +15,7 @@ export type {
   ContractAddress,
   HexString32,
 } from "./types/index.js";
+export type { ApiResponse, ApiError, ApiMeta, ApiErrorResponse } from "./types/api.js";
 
 // Attester registry
 export { KNOWN_ATTESTERS, resolveAttesterName } from "./attester-registry.js";
