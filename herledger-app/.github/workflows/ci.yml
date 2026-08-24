@@ -122,6 +122,12 @@ jobs:
         run: pnpm build
         working-directory: herledger-app
 
+      - name: Check CSS bundle size budget
+        run: pnpm check:css-budget
+        working-directory: herledger-app/apps/web
+        env:
+          CSS_BUDGET_KB: "50"
+
       - name: Build Storybook
         run: pnpm --filter web build-storybook
         working-directory: herledger-app

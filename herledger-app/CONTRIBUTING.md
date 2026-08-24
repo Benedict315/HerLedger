@@ -128,6 +128,34 @@ Component tests that render into the DOM need the jsdom environment. Add a
 `// @vitest-environment jsdom` pragma at the top of the test file — the
 project's default Vitest environment stays `node` for speed on non-DOM tests.
 
+### Testing API routes: `createMockDbClient` / `setDbClient`
+
+`apps/web/app/api/**/route.ts` handlers that go through the `getDbClient()`
+repository seam (`@herledger/db`) are tested the same way, one layer down:
+`createMockDbClient(overrides?)` builds a `DbClient` with every repository
+method pre-stubbed as a `vi.fn()` resolving a sensible default, and
+`setDbClient(mockDb)` installs it as the module's singleton before calling
+the route's exported handler directly (`GET(req)`, `POST(req)`, …) — no HTTP
+server involved. Call `resetDbClient()` in an `afterEach` so the singleton
+doesn't leak into the next test file. `auth.api.getSession` is mocked per
+test file (`vi.mock("@/lib/auth/server", ...)`) to drive the authenticated /
+401 branches. See `apps/web/app/api/business/current/route.test.ts` for the
+shape.
+
+Routes that call `@herledger/sdk` contract functions directly (not through
+the `useSdk()` React seam described above — that seam only exists for
+client components) are tested with a plain `vi.mock("@herledger/sdk", ...)`
+at the top of the route's test file, same as `indexer/src/index/__tests__/`
+does for the indexer side. Routes built on raw Prisma access via
+`getPrismaClient()` (`@/lib/db/client`) instead of the repository seam are
+tested by mocking `@/lib/db/client` directly with a small stub object shaped
+like the Prisma calls the route makes.
+
+Coverage: `packages/sdk` and `indexer/src/index/financial-events.ts` enforce
+an 80% lines/branches floor via `coverage.thresholds` in their respective
+`vitest.config.ts` — `pnpm --filter @herledger/sdk test` and
+`pnpm --filter indexer test` fail if either drops below that.
+
 ## Pull request checklist
 
 - [ ] TypeScript strict mode — no new `any`

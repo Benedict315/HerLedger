@@ -1,102 +1,47 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+import { auth } from "@/lib/auth/server";
+import { validateCallbackUrl } from "@/lib/auth/validate-callback-url";
+
+// ---------------------------------------------------------------------------
+// Route protection middleware
+// Redirect unauthenticated users away from dashboard routes.
+//
+// Session validation architecture (see SECURITY.md for the full writeup):
+//
+// - `auth.api.getSession()` is called on every protected request. This is a
+//   cryptographic + DB-backed check (Better Auth verifies the session
+//   cookie's signature and, on a cache miss, looks the session up in
+//   Postgres) — not a bare cookie-presence check. A forged or tampered
+//   cookie fails signature verification and is treated as unauthenticated.
+//
+// - Next.js 16 runs this file's request handler on the Node.js runtime by
+//   default (Proxy — the successor to Middleware — defaults to Node.js as of
+//   v16; see node_modules/next/dist/docs/01-app/03-api-reference/
+//   03-file-conventions/proxy.md, "Runtime" + "Version history" sections).
+//   That means the Prisma-backed Better Auth adapter configured in
+//   lib/auth/server.ts works here unmodified — there is no Edge runtime
+//   restriction to design around, and no separate edge-compatible auth
+//   client or route-handler proxy is needed.
+//
+// - Better Auth's `cookieCache` (lib/auth/server.ts) is the "short-lived
+//   session cache" called for by the hardening plan: a short-TTL signed,
+//   encrypted cookie holding session + user data, checked before Postgres is
+//   queried. This bounds DB round-trips to roughly one per TTL window
+//   instead of one per request, keeping this middleware's added latency
+//   low. The trade-off: a session revoked directly in the DB (not via
+//   Better Auth's own sign-out/revoke API, which also clears the cache
+//   cookie) can remain accepted at the edge for up to the cache TTL. The
+//   TTL was deliberately shortened from 7 days to 30 seconds so that window
+//   is small rather than eliminated — see the comment in lib/auth/server.ts.
+// ---------------------------------------------------------------------------
+
 const PROTECTED_PREFIXES = ["/dashboard"];
 const AUTH_ROUTES = ["/auth/sign-in", "/auth/sign-up"];
 
-const isProd = process.env.NODE_ENV === "production";
-
-/**
- * A fresh, cryptographically random nonce for this single request. Base64 of
- * 16 random bytes, per the CSP nonce guidance (must be unpredictable and
- * unique per response, never reused).
- */
-function generateNonce(): string {
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary);
-}
-
-/**
- * Origins the *browser* needs to reach directly. Horizon and the indexer are
- * only ever called server-side (see lib/stellar/network.ts), so only the
- * public Soroban RPC URL belongs here. Falls back to no extra origin if the
- * env var is unset or unparseable, so a bad value can't silently widen the
- * policy to `connect-src *`.
- */
-function rpcConnectSrc(): string[] {
-  const raw = process.env.NEXT_PUBLIC_STELLAR_RPC_URL;
-  if (!raw) return [];
-  try {
-    return [new URL(raw).origin];
-  } catch {
-    return [];
-  }
-}
-
-function buildCsp(nonce: string): string {
-  const scriptSrc = ["'self'", `'nonce-${nonce}'`, "'strict-dynamic'"];
-  const connectSrc = ["'self'", ...rpcConnectSrc()];
-
-  // Dev-only relaxations: Fast Refresh needs 'unsafe-eval', and the HMR
-  // client holds a websocket open to the dev server. Neither exists in a
-  // `next build` production bundle.
-  if (!isProd) {
-    scriptSrc.push("'unsafe-eval'");
-    connectSrc.push("ws:", "wss:");
-  }
-
-  const directives = [
-    `default-src 'self'`,
-    `script-src ${scriptSrc.join(" ")}`,
-    // Inline `style={{ ... }}` attributes are used throughout the UI, and
-    // CSP has no nonce mechanism for style *attributes* (only <style>
-    // elements support 'nonce-'), so style-src needs 'unsafe-inline'. This
-    // is a materially narrower exposure than 'unsafe-inline' in script-src
-    // would be -- see SECURITY.md for the tradeoff.
-    `style-src 'self' 'unsafe-inline'`,
-    `img-src 'self' data: blob:`,
-    `font-src 'self'`,
-    `connect-src ${connectSrc.join(" ")}`,
-    `frame-ancestors 'none'`,
-    `form-action 'self'`,
-    `base-uri 'self'`,
-    `object-src 'none'`,
-  ];
-  if (isProd) directives.push("upgrade-insecure-requests");
-
-  return directives.join("; ");
-}
-
-/**
- * Sets the header set common to every response this middleware returns
- * (page, redirect, and API alike), plus the per-request CSP.
- */
-function applySecurityHeaders(response: NextResponse, nonce: string): NextResponse {
-  response.headers.set("Content-Security-Policy", buildCsp(nonce));
-  response.headers.set("X-Frame-Options", "DENY");
-  response.headers.set("X-Content-Type-Options", "nosniff");
-  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  response.headers.set(
-    "Permissions-Policy",
-    "camera=(), microphone=(), geolocation=(), payment=()"
-  );
-  // HSTS is only meaningful (and only safe to advertise) once the app is
-  // actually served over HTTPS -- skip it in dev, where the app runs on
-  // plain http://localhost.
-  if (isProd) {
-    response.headers.set(
-      "Strict-Transport-Security",
-      "max-age=63072000; includeSubDomains; preload"
-    );
-  }
-  return response;
-}
-
-export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+export async function middleware(request: NextRequest) {
+  const { pathname, search } = request.nextUrl;
   const appUrl = process.env.APP_URL || "http://localhost:3000";
   const nonce = generateNonce();
 
@@ -129,17 +74,42 @@ export function middleware(request: NextRequest) {
     return applySecurityHeaders(NextResponse.next(), nonce);
   }
 
+  const allowedOrigins = [appUrl, request.nextUrl.origin];
   const isProtected = PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix));
-  const sessionToken = request.cookies.get("better-auth.session_token");
+  const isAuthRoute = AUTH_ROUTES.includes(pathname);
 
-  if (isProtected && !sessionToken) {
-    const signIn = new URL("/auth/sign-in", request.url);
-    signIn.searchParams.set("callbackUrl", pathname);
-    return applySecurityHeaders(NextResponse.redirect(signIn), nonce);
+  // Only pay for a session lookup when the route actually cares about auth
+  // state — public routes skip it entirely.
+  if (!isProtected && !isAuthRoute) {
+    return NextResponse.next();
   }
 
-  if (AUTH_ROUTES.includes(pathname) && sessionToken) {
-    return applySecurityHeaders(NextResponse.redirect(new URL("/dashboard", request.url)), nonce);
+  const session = await auth.api.getSession({ headers: request.headers });
+
+  if (isProtected && !session) {
+    const signIn = new URL("/auth/sign-in", request.url);
+    const callbackTarget = `${pathname}${search}`;
+    const safeCallback = validateCallbackUrl(callbackTarget, allowedOrigins);
+    signIn.searchParams.set("callbackUrl", safeCallback ?? "/dashboard");
+    return NextResponse.redirect(signIn);
+  }
+
+  if (isAuthRoute && session) {
+    const requestedCallback = request.nextUrl.searchParams.get("callbackUrl");
+    const safeCallback = validateCallbackUrl(requestedCallback, allowedOrigins);
+    return NextResponse.redirect(new URL(safeCallback ?? "/dashboard", request.url));
+  }
+
+  // On auth routes when not logged in, drop malicious callbackUrl parameter if present
+  if (isAuthRoute && !session) {
+    const requestedCallback = request.nextUrl.searchParams.get("callbackUrl");
+    if (requestedCallback !== null) {
+      const safeCallback = validateCallbackUrl(requestedCallback, allowedOrigins);
+      if (!safeCallback) {
+        const cleanAuthUrl = new URL(pathname, request.url);
+        return NextResponse.redirect(cleanAuthUrl);
+      }
+    }
   }
 
   // Forward the CSP (and the raw nonce) on the *request* headers, not just
