@@ -43,20 +43,24 @@ const AUTH_ROUTES = ["/auth/sign-in", "/auth/sign-up"];
 export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const appUrl = process.env.APP_URL || "http://localhost:3000";
+  const nonce = generateNonce();
 
   // CORS preflight handling for /api/ routes
   if (pathname.startsWith("/api/")) {
     if (request.method === "OPTIONS") {
-      return new NextResponse(null, {
-        status: 204,
-        headers: {
-          "Access-Control-Allow-Origin": appUrl,
-          "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-          "Access-Control-Allow-Headers":
-            "Content-Type, Authorization, X-Requested-With, x-admin-token",
-          "Access-Control-Allow-Credentials": "true",
-        },
-      });
+      return applySecurityHeaders(
+        new NextResponse(null, {
+          status: 204,
+          headers: {
+            "Access-Control-Allow-Origin": appUrl,
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers":
+              "Content-Type, Authorization, X-Requested-With, x-admin-token",
+            "Access-Control-Allow-Credentials": "true",
+          },
+        }),
+        nonce
+      );
     }
 
     // Add deprecation header for unversioned API routes
@@ -64,10 +68,10 @@ export async function middleware(request: NextRequest) {
       const response = NextResponse.next();
       response.headers.set("Deprecation", "true");
       response.headers.set("Link", '</api/v1>; rel="successor-version"');
-      return response;
+      return applySecurityHeaders(response, nonce);
     }
 
-    return NextResponse.next();
+    return applySecurityHeaders(NextResponse.next(), nonce);
   }
 
   const allowedOrigins = [appUrl, request.nextUrl.origin];
@@ -108,7 +112,20 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  return NextResponse.next();
+  // Forward the CSP (and the raw nonce) on the *request* headers, not just
+  // the response: Next.js reads the incoming request's Content-Security-Policy
+  // header to find the active nonce and automatically applies it to the
+  // <script> tags it injects itself (the webpack runtime, the RSC payload,
+  // etc.) — see Next.js's strict-CSP guide. Server Components can also read
+  // the nonce back out via `headers()` from `next/headers` for any script
+  // they render directly.
+  const cspHeaderValue = buildCsp(nonce);
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("Content-Security-Policy", cspHeaderValue);
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  return applySecurityHeaders(response, nonce);
 }
 
 export const config = {
