@@ -184,7 +184,7 @@ export function withRateLimit<T extends unknown[]>(
     // `auth.api.getSession` so the handler's own `getSession` call
     // returns the same value without requiring the test to set up two
     // separate `mockResolvedValueOnce` calls.
-    const originalGetSession = auth.api.getSession;
+    const originalGetSession = auth.api.getSession as unknown as (...args: unknown[]) => Promise<unknown>;
     let restore: (() => void) | null = null;
     try {
       // Only patch if it's a vi mock (has `mock` property) to avoid
@@ -193,8 +193,8 @@ export function withRateLimit<T extends unknown[]>(
         typeof (originalGetSession as unknown as { mock?: unknown }).mock !== "undefined" ||
         typeof (originalGetSession as unknown as { _isMockFunction?: boolean })._isMockFunction !== "undefined"
       ) {
-        (auth.api as unknown as { getSession: typeof originalGetSession }).getSession = async () =>
-          session as Awaited<ReturnType<typeof originalGetSession>>;
+        (auth.api as unknown as { getSession: typeof originalGetSession }).getSession =
+          async () => session as unknown as Awaited<ReturnType<typeof originalGetSession>>;
         restore = () => {
           (auth.api as unknown as { getSession: typeof originalGetSession }).getSession = originalGetSession;
         };

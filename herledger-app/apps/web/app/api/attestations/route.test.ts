@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { auth } from "@/lib/auth/server";
+import { clearRateLimitStore } from "@/lib/rate-limit";
 
 import { GET } from "./route";
 
@@ -33,6 +34,7 @@ vi.mock("@/lib/data/attestations", () => ({
 describe("GET /api/attestations", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearRateLimitStore();
   });
 
   it("returns 401 when not authenticated", async () => {

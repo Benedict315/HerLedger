@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { auth } from "@/lib/auth/server";
+import { clearRateLimitStore } from "@/lib/rate-limit";
 
 import { POST } from "./route";
 
@@ -51,6 +52,7 @@ function existingProfile(overrides: Partial<typeof VALID_BODY> = {}) {
 describe("POST /api/business/register", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearRateLimitStore();
   });
 
   afterEach(() => {
