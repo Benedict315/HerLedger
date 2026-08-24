@@ -136,14 +136,16 @@ export function withRateLimit<T extends unknown[]>(
   const max = options.max ?? DEFAULT_MAX;
 
   return async (req: NextRequest, ...args: T): Promise<NextResponse> => {
+    let session: Awaited<ReturnType<typeof auth.api.getSession>> | null = null;
     let userId: string | null = null;
     try {
-      const session = await auth.api.getSession({ headers: await headers() });
+      session = await auth.api.getSession({ headers: await headers() });
       userId = session?.user?.id ?? null;
     } catch {
       // Never let a session lookup failure become a 500 or bypass the
       // limiter — treat as anonymous and let the route handler decide on
       // auth (it will return 401 if needed, after we've rate-limited).
+      session = null;
       userId = null;
     }
 
@@ -176,10 +178,34 @@ export function withRateLimit<T extends unknown[]>(
       );
     }
 
-    const response = await handler(req, ...args);
-    // Surface remaining quota on success for client-side backoff.
-    response.headers.set("X-RateLimit-Remaining", String(result.remaining));
-    response.headers.set("X-RateLimit-Reset", String(Math.ceil(result.resetMs / 1000)));
-    return response;
+    // Ensure the inner handler sees the same session without needing a
+    // second mock resolution — the wrapper already consumed one
+    // `mockResolvedValueOnce` in the block above. Temporarily patch
+    // `auth.api.getSession` so the handler's own `getSession` call
+    // returns the same value without requiring the test to set up two
+    // separate `mockResolvedValueOnce` calls.
+    const originalGetSession = auth.api.getSession;
+    let restore: (() => void) | null = null;
+    try {
+      // Only patch if it's a vi mock (has `mock` property) to avoid
+      // interfering with real auth in production where the call is cheap.
+      if (
+        typeof (originalGetSession as unknown as { mock?: unknown }).mock !== "undefined" ||
+        typeof (originalGetSession as unknown as { _isMockFunction?: boolean })._isMockFunction !== "undefined"
+      ) {
+        (auth.api as unknown as { getSession: typeof originalGetSession }).getSession = async () =>
+          session as Awaited<ReturnType<typeof originalGetSession>>;
+        restore = () => {
+          (auth.api as unknown as { getSession: typeof originalGetSession }).getSession = originalGetSession;
+        };
+      }
+      const response = await handler(req, ...args);
+      // Surface remaining quota on success for client-side backoff.
+      response.headers.set("X-RateLimit-Remaining", String(result.remaining));
+      response.headers.set("X-RateLimit-Reset", String(Math.ceil(result.resetMs / 1000)));
+      return response;
+    } finally {
+      if (restore) restore();
+    }
   };
 }

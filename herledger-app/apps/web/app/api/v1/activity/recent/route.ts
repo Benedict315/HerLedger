@@ -4,16 +4,19 @@ import { NextRequest } from "next/server";
 import { typedJson } from "@/lib/api/route-handler";
 import { auth } from "@/lib/auth/server";
 import { getPrismaClient } from "@/lib/db/client";
+import { withRateLimit } from "@/lib/rate-limit";
 
 import { RequestSchema, type ActivityRecentResponse } from "./schema";
 
 const prisma = getPrismaClient();
 
-export async function GET(req: NextRequest) {
+export const GET = withRateLimit(async (req: NextRequest) => {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) {
     return typedJson<ActivityRecentResponse>(
-      { data: null, error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
+      { data: null, error: { code: "UNAUTHORIZED", message: "Not authenticated" },
+          meta: null
+        },
       { status: 401 }
     );
   }
@@ -25,8 +28,10 @@ export async function GET(req: NextRequest) {
   });
   if (!parsed.success) {
     return typedJson<ActivityRecentResponse>(
-      { data: null, error: { code: "INVALID_PARAMS", message: "Invalid pagination params" } },
-      { status: 400 }
+      { data: null, error: { code: "INVALID_PARAMS", message: "Invalid pagination params" },
+          meta: null
+        },
+      { status: 422 }
     );
   }
 
@@ -39,6 +44,7 @@ export async function GET(req: NextRequest) {
     return typedJson<ActivityRecentResponse>({
       data: { events: [], pagination: { offset: 0, limit: parsed.data.limit, count: 0 } },
       error: null,
+      meta: null,
     });
   }
 
@@ -59,5 +65,6 @@ export async function GET(req: NextRequest) {
       },
     },
     error: null,
+    meta: null,
   });
-}
+});

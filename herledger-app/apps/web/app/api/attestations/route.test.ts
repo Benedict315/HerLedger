@@ -43,12 +43,12 @@ describe("GET /api/attestations", () => {
     expect(res.status).toBe(401);
   });
 
-  it("returns 400 for an invalid includeRevoked query param", async () => {
+  it("returns 422 for an invalid includeRevoked query param", async () => {
     vi.mocked(auth.api.getSession).mockResolvedValueOnce({ user: { id: "u_1" } } as never);
 
     const req = new NextRequest("http://localhost/api/attestations?includeRevoked=not-a-bool");
     const res = await GET(req);
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(422);
     const body = await res.json();
     expect(body.error.code).toBe("INVALID_PARAMS");
   });
