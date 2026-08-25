@@ -13,10 +13,11 @@ import type {
   ContractConfig,
   TransactionResult,
 } from "../types/index.js";
-import { RpcError, ContractError } from "../errors/index.js";
+import { RpcError, RpcErrorCode, ContractError, ContractErrorCode } from "../errors/index.js";
 import { getSorobanRpcServer } from "../rpc/client.js";
 import { simulateAndPrepare, submitAndWait } from "../rpc/transactions.js";
 import { signTransactionWithFreighter } from "../wallet/freighter.js";
+import { defaultQueryCache, buildCacheKey, type QueryCacheOptions } from "../cache/query-cache.js";
 import {
   encodeBytes32,
   encodeAddress,
@@ -49,7 +50,8 @@ function decodeEventType(val: xdr.ScVal): EventType {
     CommitmentFulfilled: "CommitmentFulfilled",
   };
   const result = map[name];
-  if (!result) throw new ContractError(`Unknown EventType: ${name}`);
+  if (!result)
+    throw new ContractError(ContractErrorCode.UNKNOWN_VARIANT, `Unknown EventType: ${name}`);
   return result;
 }
 
@@ -62,13 +64,15 @@ function decodeEventStatus(val: xdr.ScVal): EventStatus {
     Revoked: "Revoked",
   };
   const result = map[name];
-  if (!result) throw new ContractError(`Unknown EventStatus: ${name}`);
+  if (!result)
+    throw new ContractError(ContractErrorCode.UNKNOWN_VARIANT, `Unknown EventStatus: ${name}`);
   return result;
 }
 
 function decodeFinancialEvent(val: xdr.ScVal): FinancialEvent {
   const map = val.map();
-  if (!map) throw new ContractError("Expected struct map for FinancialEvent");
+  if (!map)
+    throw new ContractError(ContractErrorCode.DECODE_ERROR, "Expected struct map for FinancialEvent");
 
   const fields: Record<string, xdr.ScVal> = {};
   for (const entry of map) {
@@ -96,7 +100,7 @@ async function simulateRead(
   try {
     return await server.simulateTransaction(tx);
   } catch (cause) {
-    throw new RpcError("Contract simulation failed", cause);
+    throw new RpcError(RpcErrorCode.REQUEST_FAILED, "Contract simulation failed", { cause });
   }
 }
 
@@ -105,155 +109,136 @@ async function simulateRead(
 // ---------------------------------------------------------------------------
 
 /**
- * Read `get_event(event_id)` from the FinancialLedger contract.
- *
- * @param eventId - Hex-encoded on-chain event ID (32 bytes).
- * @param config - Stellar network configuration.
- * @param contracts - Validated contract addresses.
- * @returns The `FinancialEvent`, or `null` if none exists for the ID.
- * @throws {RpcError} if simulation fails; {ContractError} on a simulation error.
- *
- * @example
- * ```ts
- * const event = await getFinancialEvent(id, config, contracts);
- * ```
+ * Results are cached (in-memory, TTL default 30s, keyed by contract id +
+ * method + args) and concurrent identical calls are de-duplicated into a
+ * single RPC request. Pass `cacheOptions: { bypassCache: true }` to force a
+ * fresh read, or `{ ttlMs }` to override the TTL for this call.
  */
 export async function getFinancialEvent(
   eventId: string,
   config: StellarNetworkConfig,
-  contracts: ContractConfig
+  contracts: ContractConfig,
+  cacheOptions?: QueryCacheOptions
 ): Promise<FinancialEvent | null> {
-  const contract = new Contract(contracts.financialLedgerId);
-  const tx = new TransactionBuilder(new Account(READ_ACCOUNT, "0"), {
-    fee: "100",
-    networkPassphrase: config.networkPassphrase,
-  })
-    .addOperation(contract.call("get_event", encodeBytes32(toHexString32(eventId))))
-    .setTimeout(30)
-    .build();
+  const cacheKey = buildCacheKey(contracts.financialLedgerId, "get_event", [eventId]);
+  return defaultQueryCache.get(
+    cacheKey,
+    async () => {
+      const contract = new Contract(contracts.financialLedgerId);
+      const tx = new TransactionBuilder(new Account(READ_ACCOUNT, "0"), {
+        fee: "100",
+        networkPassphrase: config.networkPassphrase,
+      })
+        .addOperation(contract.call("get_event", encodeBytes32(toHexString32(eventId))))
+        .setTimeout(30)
+        .build();
 
-  const sim = await simulateRead(tx, config);
-  if (StellarRpc.Api.isSimulationError(sim)) {
-    throw new ContractError(`get_event error: ${sim.error}`);
-  }
-  const retval = sim.result?.retval;
-  if (!retval || isVoid(retval)) return null;
-  return decodeFinancialEvent(retval);
+      const sim = await simulateRead(tx, config);
+      if (StellarRpc.Api.isSimulationError(sim)) {
+        throw new ContractError(ContractErrorCode.SIMULATION_ERROR, `get_event error: ${sim.error}`, {
+          context: { contractCode: sim.error, method: "get_event" },
+        });
+      }
+      const retval = sim.result?.retval;
+      if (!retval || isVoid(retval)) return null;
+      return decodeFinancialEvent(retval);
+    },
+    cacheOptions
+  );
 }
 
-/**
- * Read a page of `get_business_events(business_id, offset, limit)` from the
- * FinancialLedger contract.
- *
- * @param businessId - Hex-encoded on-chain business ID (32 bytes).
- * @param offset - Zero-based page offset.
- * @param limit - Maximum number of events to return.
- * @param config - Stellar network configuration.
- * @param contracts - Validated contract addresses.
- * @returns The events for the page (empty array if none).
- * @throws {RpcError} if simulation fails; {ContractError} on a simulation error.
- *
- * @example
- * ```ts
- * const events = await getBusinessEvents(id, 0, 20, config, contracts);
- * ```
- */
+/** See `getFinancialEvent` for cache behavior. */
 export async function getBusinessEvents(
   businessId: string,
   offset: number,
   limit: number,
   config: StellarNetworkConfig,
-  contracts: ContractConfig
+  contracts: ContractConfig,
+  cacheOptions?: QueryCacheOptions
 ): Promise<FinancialEvent[]> {
-  const contract = new Contract(contracts.financialLedgerId);
-  const tx = new TransactionBuilder(new Account(READ_ACCOUNT, "0"), {
-    fee: "100",
-    networkPassphrase: config.networkPassphrase,
-  })
-    .addOperation(
-      contract.call(
-        "get_business_events",
-        encodeBytes32(toHexString32(businessId)),
-        encodeU32(offset),
-        encodeU32(limit)
-      )
-    )
-    .setTimeout(30)
-    .build();
+  const cacheKey = buildCacheKey(contracts.financialLedgerId, "get_business_events", [
+    businessId,
+    offset,
+    limit,
+  ]);
+  return defaultQueryCache.get(
+    cacheKey,
+    async () => {
+      const contract = new Contract(contracts.financialLedgerId);
+      const tx = new TransactionBuilder(new Account(READ_ACCOUNT, "0"), {
+        fee: "100",
+        networkPassphrase: config.networkPassphrase,
+      })
+        .addOperation(
+          contract.call(
+            "get_business_events",
+            encodeBytes32(toHexString32(businessId)),
+            encodeU32(offset),
+            encodeU32(limit)
+          )
+        )
+        .setTimeout(30)
+        .build();
 
-  const sim = await simulateRead(tx, config);
-  if (StellarRpc.Api.isSimulationError(sim)) {
-    throw new ContractError(`get_business_events error: ${sim.error}`);
-  }
-  const retval = sim.result?.retval;
-  if (!retval || isVoid(retval)) return [];
+      const sim = await simulateRead(tx, config);
+      if (StellarRpc.Api.isSimulationError(sim)) {
+        throw new ContractError(
+          ContractErrorCode.SIMULATION_ERROR,
+          `get_business_events error: ${sim.error}`,
+          { context: { contractCode: sim.error, method: "get_business_events" } }
+        );
+      }
+      const retval = sim.result?.retval;
+      if (!retval || isVoid(retval)) return [];
 
-  const vec = retval.vec();
-  if (!vec) return [];
-  return vec.map(decodeFinancialEvent);
+      const vec = retval.vec();
+      if (!vec) return [];
+      return vec.map(decodeFinancialEvent);
+    },
+    cacheOptions
+  );
 }
 
-/**
- * Read `is_supported_asset(asset)` from the FinancialLedger contract.
- *
- * @param assetAddress - Stellar asset contract address to check.
- * @param config - Stellar network configuration.
- * @param contracts - Validated contract addresses.
- * @returns `true` if the asset is supported for indexing.
- * @throws {RpcError} if simulation fails; {ContractError} on a simulation error.
- *
- * @example
- * ```ts
- * const supported = await isSupportedAsset(asset, config, contracts);
- * ```
- */
+/** See `getFinancialEvent` for cache behavior. */
 export async function isSupportedAsset(
   assetAddress: string,
   config: StellarNetworkConfig,
-  contracts: ContractConfig
+  contracts: ContractConfig,
+  cacheOptions?: QueryCacheOptions
 ): Promise<boolean> {
-  const contract = new Contract(contracts.financialLedgerId);
-  const tx = new TransactionBuilder(new Account(READ_ACCOUNT, "0"), {
-    fee: "100",
-    networkPassphrase: config.networkPassphrase,
-  })
-    .addOperation(contract.call("is_supported_asset", encodeAddress(assetAddress)))
-    .setTimeout(30)
-    .build();
+  const cacheKey = buildCacheKey(contracts.financialLedgerId, "is_supported_asset", [assetAddress]);
+  return defaultQueryCache.get(
+    cacheKey,
+    async () => {
+      const contract = new Contract(contracts.financialLedgerId);
+      const tx = new TransactionBuilder(new Account(READ_ACCOUNT, "0"), {
+        fee: "100",
+        networkPassphrase: config.networkPassphrase,
+      })
+        .addOperation(contract.call("is_supported_asset", encodeAddress(assetAddress)))
+        .setTimeout(30)
+        .build();
 
-  const sim = await simulateRead(tx, config);
-  if (StellarRpc.Api.isSimulationError(sim)) {
-    throw new ContractError(`is_supported_asset error: ${sim.error}`);
-  }
-  const retval = sim.result?.retval;
-  if (!retval || isVoid(retval)) return false;
-  return retval.b();
+      const sim = await simulateRead(tx, config);
+      if (StellarRpc.Api.isSimulationError(sim)) {
+        throw new ContractError(
+          ContractErrorCode.SIMULATION_ERROR,
+          `is_supported_asset error: ${sim.error}`,
+          { context: { contractCode: sim.error, method: "is_supported_asset" } }
+        );
+      }
+      const retval = sim.result?.retval;
+      if (!retval || isVoid(retval)) return false;
+      return retval.b();
+    },
+    cacheOptions
+  );
 }
 
 // ---------------------------------------------------------------------------
 // Writes
 // ---------------------------------------------------------------------------
 
-/**
- * Write `record_event(...)` to create a financial event on-chain, signing
- * with the `submitter` account via Freighter.
- *
- * @param params - Event fields plus the `sourceAccount` used to build the
- *   transaction.
- * @param config - Stellar network configuration.
- * @param contracts - Validated contract addresses.
- * @returns The confirmed transaction result.
- * @throws {RpcError} / {ContractError} / {WalletError} on failure.
- *
- * @example
- * ```ts
- * const result = await recordFinancialEvent(
- *   { eventId, businessId, eventType, asset, amount, stellarReference, metadataHash, submitter, sourceAccount },
- *   config,
- *   contracts
- * );
- * ```
- */
 export async function recordFinancialEvent(
   params: {
     eventId: string;
@@ -295,34 +280,21 @@ export async function recordFinancialEvent(
     config.networkPassphrase,
     params.submitter
   );
-  return submitAndWait(signedXdr, config);
+  const result = await submitAndWait(signedXdr, config);
+  defaultQueryCache.invalidate(
+    buildCacheKey(contracts.financialLedgerId, "get_event", [params.eventId])
+  );
+  return result;
 }
 
 /**
- * Write `dispute_event(event_id, business_owner, reason_hash)`, signing with
- * the `owner` account via Freighter.
+ * Write: dispute_event(event_id, business_owner, reason_hash)
  *
  * NOTE: the contract requires `business_owner: Address` as an explicit
  * argument (it calls `business_owner.require_auth()` directly rather than
  * loading the owner from storage) — a prior version of this function
  * omitted it, which would have failed at the RPC layer with an argument
  * count mismatch. Fixed as part of #59's ABI audit.
- *
- * @param params - Dispute fields (event ID, owner, reason hash) plus the
- *   `sourceAccount` used to build the transaction.
- * @param config - Stellar network configuration.
- * @param contracts - Validated contract addresses.
- * @returns The confirmed transaction result.
- * @throws {RpcError} / {ContractError} / {WalletError} on failure.
- *
- * @example
- * ```ts
- * const result = await disputeFinancialEvent(
- *   { eventId, reasonHash, owner, sourceAccount },
- *   config,
- *   contracts
- * );
- * ```
  */
 export async function disputeFinancialEvent(
   params: {
@@ -356,28 +328,13 @@ export async function disputeFinancialEvent(
     config.networkPassphrase,
     params.owner
   );
-  return submitAndWait(signedXdr, config);
+  const result = await submitAndWait(signedXdr, config);
+  defaultQueryCache.invalidate(
+    buildCacheKey(contracts.financialLedgerId, "get_event", [params.eventId])
+  );
+  return result;
 }
 
-/**
- * Write `verify_event(event_id)`, signing with the `submitter` account via
- * Freighter.
- *
- * @param params - Verification fields plus the `sourceAccount`.
- * @param config - Stellar network configuration.
- * @param contracts - Validated contract addresses.
- * @returns The confirmed transaction result.
- * @throws {RpcError} / {ContractError} / {WalletError} on failure.
- *
- * @example
- * ```ts
- * const result = await verifyFinancialEvent(
- *   { eventId, submitter, sourceAccount },
- *   config,
- *   contracts
- * );
- * ```
- */
 export async function verifyFinancialEvent(
   params: {
     eventId: string;
@@ -402,28 +359,13 @@ export async function verifyFinancialEvent(
     config.networkPassphrase,
     params.submitter
   );
-  return submitAndWait(signedXdr, config);
+  const result = await submitAndWait(signedXdr, config);
+  defaultQueryCache.invalidate(
+    buildCacheKey(contracts.financialLedgerId, "get_event", [params.eventId])
+  );
+  return result;
 }
 
-/**
- * Write `resolve_dispute(event_id, valid, resolution_hash)`, signing with the
- * `submitter` account via Freighter.
- *
- * @param params - Resolution fields plus the `sourceAccount`.
- * @param config - Stellar network configuration.
- * @param contracts - Validated contract addresses.
- * @returns The confirmed transaction result.
- * @throws {RpcError} / {ContractError} / {WalletError} on failure.
- *
- * @example
- * ```ts
- * const result = await resolveFinancialEvent(
- *   { eventId, valid, resolutionHash, submitter, sourceAccount },
- *   config,
- *   contracts
- * );
- * ```
- */
 export async function resolveFinancialEvent(
   params: {
     eventId: string;
@@ -457,28 +399,13 @@ export async function resolveFinancialEvent(
     config.networkPassphrase,
     params.submitter
   );
-  return submitAndWait(signedXdr, config);
+  const result = await submitAndWait(signedXdr, config);
+  defaultQueryCache.invalidate(
+    buildCacheKey(contracts.financialLedgerId, "get_event", [params.eventId])
+  );
+  return result;
 }
 
-/**
- * Write `revoke_event(event_id, reason_hash)`, signing with the `submitter`
- * account via Freighter.
- *
- * @param params - Revocation fields plus the `sourceAccount`.
- * @param config - Stellar network configuration.
- * @param contracts - Validated contract addresses.
- * @returns The confirmed transaction result.
- * @throws {RpcError} / {ContractError} / {WalletError} on failure.
- *
- * @example
- * ```ts
- * const result = await revokeFinancialEvent(
- *   { eventId, reasonHash, submitter, sourceAccount },
- *   config,
- *   contracts
- * );
- * ```
- */
 export async function revokeFinancialEvent(
   params: {
     eventId: string;
@@ -506,5 +433,9 @@ export async function revokeFinancialEvent(
     config.networkPassphrase,
     params.submitter
   );
-  return submitAndWait(signedXdr, config);
+  const result = await submitAndWait(signedXdr, config);
+  defaultQueryCache.invalidate(
+    buildCacheKey(contracts.financialLedgerId, "get_event", [params.eventId])
+  );
+  return result;
 }

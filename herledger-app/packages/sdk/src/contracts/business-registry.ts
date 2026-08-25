@@ -11,10 +11,11 @@ import type {
   ContractConfig,
   TransactionResult,
 } from "../types/index.js";
-import { RpcError, ContractError } from "../errors/index.js";
+import { RpcError, RpcErrorCode, ContractError, ContractErrorCode } from "../errors/index.js";
 import { getSorobanRpcServer } from "../rpc/client.js";
 import { simulateAndPrepare, submitAndWait } from "../rpc/transactions.js";
 import { signTransactionWithFreighter } from "../wallet/freighter.js";
+import { defaultQueryCache, buildCacheKey, type QueryCacheOptions } from "../cache/query-cache.js";
 import {
   encodeBytes32,
   encodeAddress,
@@ -37,7 +38,7 @@ function isVoid(val: xdr.ScVal): boolean {
 
 function decodeBusiness(val: xdr.ScVal): Business {
   const map = val.map();
-  if (!map) throw new ContractError("Expected struct map for Business");
+  if (!map) throw new ContractError(ContractErrorCode.DECODE_ERROR, "Expected struct map for Business");
 
   const fields: Record<string, xdr.ScVal> = {};
   for (const entry of map) {
@@ -61,7 +62,7 @@ async function simulateRead(
   try {
     return await server.simulateTransaction(tx);
   } catch (cause) {
-    throw new RpcError("Contract simulation failed", cause);
+    throw new RpcError(RpcErrorCode.REQUEST_FAILED, "Contract simulation failed", { cause });
   }
 }
 
@@ -70,79 +71,87 @@ async function simulateRead(
 // ---------------------------------------------------------------------------
 
 /**
- * Read `get_business(business_id)` from the BusinessRegistry contract.
+ * Read: get_business(business_id) -> Option<Business>
  *
- * @param businessId - Hex-encoded on-chain business ID (32 bytes).
- * @param config - Stellar network configuration.
- * @param contracts - Validated contract addresses.
- * @returns The `Business`, or `null` if none is registered for the ID.
- * @throws {RpcError} if simulation fails; {ContractError} on a simulation error.
- *
- * @example
- * ```ts
- * const business = await getBusiness(id, config, contracts);
- * ```
+ * Results are cached (in-memory, TTL default 30s, keyed by contract id +
+ * method + args) and concurrent identical calls are de-duplicated into a
+ * single RPC request. Pass `cacheOptions: { bypassCache: true }` to force a
+ * fresh read, or `{ ttlMs }` to override the TTL for this call.
  */
 export async function getBusiness(
   businessId: string,
   config: StellarNetworkConfig,
-  contracts: ContractConfig
+  contracts: ContractConfig,
+  cacheOptions?: QueryCacheOptions
 ): Promise<Business | null> {
-  const contract = new Contract(contracts.businessRegistryId);
-  const tx = new TransactionBuilder(new Account(READ_ACCOUNT, "0"), {
-    fee: "100",
-    networkPassphrase: config.networkPassphrase,
-  })
-    .addOperation(contract.call("get_business", encodeBytes32(toHexString32(businessId))))
-    .setTimeout(30)
-    .build();
+  const cacheKey = buildCacheKey(contracts.businessRegistryId, "get_business", [businessId]);
+  return defaultQueryCache.get(
+    cacheKey,
+    async () => {
+      const contract = new Contract(contracts.businessRegistryId);
+      const tx = new TransactionBuilder(new Account(READ_ACCOUNT, "0"), {
+        fee: "100",
+        networkPassphrase: config.networkPassphrase,
+      })
+        .addOperation(contract.call("get_business", encodeBytes32(toHexString32(businessId))))
+        .setTimeout(30)
+        .build();
 
-  const sim = await simulateRead(tx, config);
-  if (StellarRpc.Api.isSimulationError(sim)) {
-    throw new ContractError(`get_business error: ${sim.error}`);
-  }
+      const sim = await simulateRead(tx, config);
+      if (StellarRpc.Api.isSimulationError(sim)) {
+        throw new ContractError(ContractErrorCode.SIMULATION_ERROR, `get_business error: ${sim.error}`, {
+          context: { contractCode: sim.error, method: "get_business" },
+        });
+      }
 
-  const retval = sim.result?.retval;
-  if (!retval || isVoid(retval)) return null;
-  return decodeBusiness(retval);
+      const retval = sim.result?.retval;
+      if (!retval || isVoid(retval)) return null;
+      return decodeBusiness(retval);
+    },
+    cacheOptions
+  );
 }
 
 /**
- * Read `get_business_by_wallet(wallet)` from the BusinessRegistry contract.
+ * Read: get_business_by_wallet(wallet) -> Option<Business>
  *
- * @param wallet - Stellar wallet address to look up.
- * @param config - Stellar network configuration.
- * @param contracts - Validated contract addresses.
- * @returns The `Business`, or `null` if no business is registered for the wallet.
- * @throws {RpcError} if simulation fails; {ContractError} on a simulation error.
- *
- * @example
- * ```ts
- * const business = await getBusinessByWallet(wallet, config, contracts);
- * ```
+ * See `getBusiness` for cache behavior; `cacheOptions` accepts the same
+ * `{ ttlMs, bypassCache }` shape.
  */
 export async function getBusinessByWallet(
   wallet: string,
   config: StellarNetworkConfig,
-  contracts: ContractConfig
+  contracts: ContractConfig,
+  cacheOptions?: QueryCacheOptions
 ): Promise<Business | null> {
-  const contract = new Contract(contracts.businessRegistryId);
-  const tx = new TransactionBuilder(new Account(READ_ACCOUNT, "0"), {
-    fee: "100",
-    networkPassphrase: config.networkPassphrase,
-  })
-    .addOperation(contract.call("get_business_by_wallet", encodeAddress(wallet)))
-    .setTimeout(30)
-    .build();
+  const cacheKey = buildCacheKey(contracts.businessRegistryId, "get_business_by_wallet", [wallet]);
+  return defaultQueryCache.get(
+    cacheKey,
+    async () => {
+      const contract = new Contract(contracts.businessRegistryId);
+      const tx = new TransactionBuilder(new Account(READ_ACCOUNT, "0"), {
+        fee: "100",
+        networkPassphrase: config.networkPassphrase,
+      })
+        .addOperation(contract.call("get_business_by_wallet", encodeAddress(wallet)))
+        .setTimeout(30)
+        .build();
 
-  const sim = await simulateRead(tx, config);
-  if (StellarRpc.Api.isSimulationError(sim)) {
-    throw new ContractError(`get_business_by_wallet error: ${sim.error}`);
-  }
+      const sim = await simulateRead(tx, config);
+      if (StellarRpc.Api.isSimulationError(sim)) {
+        throw new ContractError(
+          ContractErrorCode.SIMULATION_ERROR,
+          `get_business_by_wallet error: ${sim.error}`,
+          { context: { contractCode: sim.error, method: "get_business_by_wallet" } }
+        );
+      }
 
-  const retval = sim.result?.retval;
-  if (!retval || isVoid(retval)) return null;
-  return decodeBusiness(retval);
+      const retval = sim.result?.retval;
+      if (!retval || isVoid(retval)) return null;
+      return decodeBusiness(retval);
+    },
+    cacheOptions
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -192,28 +201,15 @@ export async function registerBusiness(
     config.networkPassphrase,
     params.owner
   );
-  return submitAndWait(signedXdr, config, onSubmitted);
+  const result = await submitAndWait(signedXdr, config, onSubmitted);
+  defaultQueryCache.invalidate(
+    buildCacheKey(contracts.businessRegistryId, "get_business", [params.businessId])
+  );
+  return result;
 }
 
 /**
- * Write `update_metadata(business_id, metadata_hash)` to change a business's
- * metadata hash, signing with the `owner` account via Freighter.
- *
- * @param params - Update fields plus the `sourceAccount` used to build the
- *   transaction.
- * @param config - Stellar network configuration.
- * @param contracts - Validated contract addresses.
- * @returns The confirmed transaction result.
- * @throws {RpcError} / {ContractError} / {WalletError} on failure.
- *
- * @example
- * ```ts
- * const result = await updateBusinessMetadata(
- *   { businessId, metadataHash, owner, sourceAccount },
- *   config,
- *   contracts
- * );
- * ```
+ * Write: update_metadata(business_id, metadata_hash)
  */
 export async function updateBusinessMetadata(
   params: {
@@ -246,28 +242,15 @@ export async function updateBusinessMetadata(
     config.networkPassphrase,
     params.owner
   );
-  return submitAndWait(signedXdr, config);
+  const result = await submitAndWait(signedXdr, config);
+  defaultQueryCache.invalidate(
+    buildCacheKey(contracts.businessRegistryId, "get_business", [params.businessId])
+  );
+  return result;
 }
 
 /**
- * Write `deactivate_business(business_id)`, signing with the `owner` account
- * via Freighter.
- *
- * @param params - Deactivation fields plus the `sourceAccount` used to build
- *   the transaction.
- * @param config - Stellar network configuration.
- * @param contracts - Validated contract addresses.
- * @returns The confirmed transaction result.
- * @throws {RpcError} / {ContractError} / {WalletError} on failure.
- *
- * @example
- * ```ts
- * const result = await deactivateBusiness(
- *   { businessId, owner, sourceAccount },
- *   config,
- *   contracts
- * );
- * ```
+ * Write: deactivate_business(business_id)
  */
 export async function deactivateBusiness(
   params: {
@@ -293,5 +276,9 @@ export async function deactivateBusiness(
     config.networkPassphrase,
     params.owner
   );
-  return submitAndWait(signedXdr, config);
+  const result = await submitAndWait(signedXdr, config);
+  defaultQueryCache.invalidate(
+    buildCacheKey(contracts.businessRegistryId, "get_business", [params.businessId])
+  );
+  return result;
 }

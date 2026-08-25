@@ -21,6 +21,8 @@ export async function GET(req: NextRequest) {
   const parsed = RequestSchema.safeParse({
     offset: searchParams.get("offset") ?? undefined,
     limit: searchParams.get("limit") ?? undefined,
+    startDate: searchParams.get("startDate") ?? undefined,
+    endDate: searchParams.get("endDate") ?? undefined,
   });
   if (!parsed.success) {
     return typedJson<ActivityRecentResponse>(
@@ -35,6 +37,8 @@ export async function GET(req: NextRequest) {
   const data = await getRecentActivity(profile?.businessId ?? null, {
     offset: parsed.data.offset,
     limit: parsed.data.limit,
+    ...(parsed.data.startDate ? { startDate: parsed.data.startDate } : {}),
+    ...(parsed.data.endDate ? { endDate: parsed.data.endDate } : {}),
   });
 
   return typedJson<ActivityRecentResponse>({ data, error: null });
