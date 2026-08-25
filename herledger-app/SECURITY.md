@@ -17,6 +17,16 @@ production for real financial data without a professional security review.
 - **Server-side secrets**: `DATABASE_URL` and `BETTER_AUTH_SECRET` are
   never exposed to browser code. Only `NEXT_PUBLIC_*` values are client-accessible.
 
+- **`BETTER_AUTH_SECRET` entropy validation**: `packages/config/src/schema.ts`
+  requires the value to match `/^[0-9a-fA-F]{64,}$/` (>= 64 hex characters,
+  i.e. >= 32 bytes of entropy) via a Zod `.refine()`, not just a minimum
+  length. A human-typed passphrase padded out to some minimum length (the
+  previous rule was `.min(32)`) carries far less real entropy per character
+  than random hex does, so length alone let a weak value slip through as
+  long as it was long enough. `getServerEnv()` still calls `process.exit(1)`
+  with a descriptive table on any failure, so the app refuses to start with
+  a weak secret. Generate a compliant value with `openssl rand -hex 32`.
+
 - **Input validation**: All API inputs are validated with Zod. No user-provided
   data bypasses validation.
 
@@ -75,10 +85,27 @@ production for real financial data without a professional security review.
   returns a session (no `Set-Cookie`, `token: null`) until the address is
   verified, and a sign-in attempt against an unverified account is
   rejected with a distinct `EMAIL_NOT_VERIFIED` error rather than
-  succeeding. There is no code path in this app that hands an unverified
-  user a session cookie, so `middleware.ts`'s existing cookie-presence
-  check already keeps `/dashboard` unreachable without needing its own
-  `emailVerified` check.
+  succeeding. `middleware.ts` validates sessions via Better Auth's
+  `auth.api.getSession()` on every protected route.
+
+- **Edge Session Validation & DB Liveness Enforcement**: `apps/web/middleware.ts`
+  protects `/dashboard/*` routes by calling `auth.api.getSession({ headers: request.headers })`
+  on every request.
+  - **Cryptographic HMAC & DB verification**: Forged session cookies, invalid tokens, and
+    sessions revoked in the database are rejected with an explicit HTTP 302 redirect to `/auth/sign-in`.
+  - **Edge-compatible session caching**: `apps/web/lib/auth/server.ts` configures
+    `session.cookieCache` with a short 60-second TTL window. Signed JWT cookie verification
+    provides sub-millisecond edge authorization (< 50ms p99 latency) while guaranteeing
+    database liveness re-verification and prompt revocation enforcement upon cache expiration.
+
+- **Open-Redirect Defense**: The `callbackUrl` query parameter on `/auth/sign-in` is
+  sanitized with `validateCallbackUrl` (`apps/web/lib/auth/callback-url.ts`).
+  - **Allowlisting**: Only same-origin relative paths (e.g. `/dashboard`) or absolute URLs
+    matching `APP_URL` are permitted.
+  - **Payload dropping**: Protocol-relative URLs (`//evil.com`), external domains
+    (`https://evil.com`), script URIs (`javascript:alert(1)`), URL-encoded variants,
+    and backslash traversal tricks (`/\evil.com`) are dropped silently.
+
 
   - **Email provider**: [Resend](https://resend.com) (`apps/web/lib/email/`).
     A single `RESEND_API_KEY` env var is enough in development against

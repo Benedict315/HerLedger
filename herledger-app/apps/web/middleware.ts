@@ -41,22 +41,26 @@ const PROTECTED_PREFIXES = ["/dashboard"];
 const AUTH_ROUTES = ["/auth/sign-in", "/auth/sign-up"];
 
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const { pathname, search } = request.nextUrl;
   const appUrl = process.env.APP_URL || "http://localhost:3000";
+  const nonce = generateNonce();
 
   // CORS preflight handling for /api/ routes
   if (pathname.startsWith("/api/")) {
     if (request.method === "OPTIONS") {
-      return new NextResponse(null, {
-        status: 204,
-        headers: {
-          "Access-Control-Allow-Origin": appUrl,
-          "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-          "Access-Control-Allow-Headers":
-            "Content-Type, Authorization, X-Requested-With, x-admin-token",
-          "Access-Control-Allow-Credentials": "true",
-        },
-      });
+      return applySecurityHeaders(
+        new NextResponse(null, {
+          status: 204,
+          headers: {
+            "Access-Control-Allow-Origin": appUrl,
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers":
+              "Content-Type, Authorization, X-Requested-With, x-admin-token",
+            "Access-Control-Allow-Credentials": "true",
+          },
+        }),
+        nonce
+      );
     }
 
     // Add deprecation header for unversioned API routes
@@ -64,14 +68,13 @@ export async function middleware(request: NextRequest) {
       const response = NextResponse.next();
       response.headers.set("Deprecation", "true");
       response.headers.set("Link", '</api/v1>; rel="successor-version"');
-      return response;
+      return applySecurityHeaders(response, nonce);
     }
 
-    return NextResponse.next();
+    return applySecurityHeaders(NextResponse.next(), nonce);
   }
 
-  const allowedOrigins = [request.nextUrl.origin];
-
+  const allowedOrigins = [appUrl, request.nextUrl.origin];
   const isProtected = PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix));
   const isAuthRoute = AUTH_ROUTES.includes(pathname);
 
@@ -85,7 +88,7 @@ export async function middleware(request: NextRequest) {
 
   if (isProtected && !session) {
     const signIn = new URL("/auth/sign-in", request.url);
-    const callbackTarget = `${pathname}${request.nextUrl.search}`;
+    const callbackTarget = `${pathname}${search}`;
     const safeCallback = validateCallbackUrl(callbackTarget, allowedOrigins);
     signIn.searchParams.set("callbackUrl", safeCallback ?? "/dashboard");
     return NextResponse.redirect(signIn);
@@ -97,7 +100,32 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(safeCallback ?? "/dashboard", request.url));
   }
 
-  return NextResponse.next();
+  // On auth routes when not logged in, drop malicious callbackUrl parameter if present
+  if (isAuthRoute && !session) {
+    const requestedCallback = request.nextUrl.searchParams.get("callbackUrl");
+    if (requestedCallback !== null) {
+      const safeCallback = validateCallbackUrl(requestedCallback, allowedOrigins);
+      if (!safeCallback) {
+        const cleanAuthUrl = new URL(pathname, request.url);
+        return NextResponse.redirect(cleanAuthUrl);
+      }
+    }
+  }
+
+  // Forward the CSP (and the raw nonce) on the *request* headers, not just
+  // the response: Next.js reads the incoming request's Content-Security-Policy
+  // header to find the active nonce and automatically applies it to the
+  // <script> tags it injects itself (the webpack runtime, the RSC payload,
+  // etc.) — see Next.js's strict-CSP guide. Server Components can also read
+  // the nonce back out via `headers()` from `next/headers` for any script
+  // they render directly.
+  const cspHeaderValue = buildCsp(nonce);
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("Content-Security-Policy", cspHeaderValue);
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  return applySecurityHeaders(response, nonce);
 }
 
 export const config = {
