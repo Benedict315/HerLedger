@@ -47,6 +47,7 @@ export function DisputeForm({ eventId, onSuccess }: DisputeFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [saveWarning, setSaveWarning] = useState<string | null>(null);
+  const { connectedAddress, refreshWallet } = useWallet();
 
   // The success view replaces the form entirely, which would otherwise drop
   // focus back to <body>; move it to the success heading instead so
@@ -68,7 +69,7 @@ export function DisputeForm({ eventId, onSuccess }: DisputeFormProps) {
     setLoading(true);
 
     try {
-      // `address` is cached in WalletContext — no extra Freighter API call.
+      const ownerAddress = connectedAddress ?? (await refreshWallet());
       if (!ownerAddress) {
         setError("No Stellar wallet connected. Please connect your wallet first.");
         setLoading(false);
@@ -100,7 +101,7 @@ export function DisputeForm({ eventId, onSuccess }: DisputeFormProps) {
         // NOT treat the dispute submission itself as failed, since retrying
         // the on-chain call would raise a duplicate dispute.
         try {
-          const saveRes = await fetch("/api/disputes", {
+          const saveRes = await fetch("/api/v1/disputes", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ eventId, reason, reasonHash }),

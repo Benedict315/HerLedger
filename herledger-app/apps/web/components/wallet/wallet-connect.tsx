@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { connectWallet, WalletError } from "@herledger/sdk";
+import { useEffect, useRef, useState } from "react";
 
 import { ErrorMessage } from "@/components/ui/error-message";
-import { useWallet } from "@/hooks/use-wallet";
+import { useWallet } from "@/components/wallet/wallet-provider";
+import { truncateAddress } from "@/lib/utils/format";
 
 interface WalletConnectProps {
   onConnected: (publicKey: string) => void;
@@ -21,35 +23,49 @@ interface WalletConnectProps {
  *   their own step state when the wallet becomes connected.
  */
 export function WalletConnect({ onConnected }: WalletConnectProps) {
-  const { address, isConnected, isConnecting, error, connect, disconnect } = useWallet();
+  const { connectedAddress, isChecking, connect, clearWalletState } = useWallet();
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  // Text for the persistent live region below — announces async wallet state
+  // changes to screen readers even though the visual UI is swapped, not just
+  // updated in place.
+  const [statusMessage, setStatusMessage] = useState("");
 
-  // Capture the latest onConnected in a ref to avoid stale closures in the
-  // effect below without making address the only trigger.
+  // Capture the latest `onConnected` via a ref so the effect below can't fire
+  // from a stale closure when the parent re-renders.
   const onConnectedRef = useRef(onConnected);
   useEffect(() => {
     onConnectedRef.current = onConnected;
   });
 
-  // Forward the connected address to the parent whenever it changes.
-  // Using a ref-tracked "last notified address" prevents double-firing when
-  // the same address is seen across re-renders.
-  const lastNotifiedRef = useRef<string | null>(null);
+  // Notify the parent when the context reports a connected address (on mount
+  // or after the user connects).
   useEffect(() => {
-    if (address && address !== lastNotifiedRef.current) {
-      lastNotifiedRef.current = address;
-      onConnectedRef.current(address);
+    if (connectedAddress) {
+      onConnectedRef.current(connectedAddress);
     }
-    if (!address) {
-      lastNotifiedRef.current = null;
-    }
-  }, [address]);
+  }, [connectedAddress]);
 
   async function handleConnect() {
     try {
-      await connect();
-    } catch {
-      // Error is already captured in context.error — nothing extra to do.
+      const { publicKey } = await connectWallet();
+      connect(publicKey);
+      setStatusMessage("Wallet connected.");
+      onConnected(publicKey);
+    } catch (err) {
+      const message =
+        err instanceof WalletError ? err.message : "Failed to connect wallet. Please try again.";
+      setError(message);
+      setStatusMessage(`Wallet connection failed: ${message}`);
+    } finally {
+      setLoading(false);
     }
+  }
+
+  function handleDisconnect() {
+    clearWalletState();
+    setError(null);
+    setStatusMessage("Wallet disconnected.");
   }
 
   return (
@@ -65,7 +81,7 @@ export function WalletConnect({ onConnected }: WalletConnectProps) {
               : ""}
       </div>
 
-      {isConnected && address ? (
+      {isChecking ? null : connectedAddress ? (
         <div
           style={{
             padding: "1rem",
@@ -83,9 +99,10 @@ export function WalletConnect({ onConnected }: WalletConnectProps) {
               wordBreak: "break-all",
               marginBottom: "0.75rem",
             }}
-            aria-label="Connected Stellar address"
+            aria-label={`Connected Stellar address ${connectedAddress}`}
+            title={connectedAddress}
           >
-            {address}
+            {truncateAddress(connectedAddress)}
           </p>
           <button
             onClick={() => void disconnect()}

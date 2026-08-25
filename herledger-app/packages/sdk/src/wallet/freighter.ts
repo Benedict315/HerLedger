@@ -5,8 +5,7 @@ import {
   requestAccess,
   getNetwork,
 } from "@stellar/freighter-api";
-import { WalletError } from "../errors/index.js";
-import type { WalletConnection, WalletProvider } from "./types.js";
+import { WalletError, WalletErrorCode } from "../errors/index.js";
 
 // ---------------------------------------------------------------------------
 // FreighterWalletProvider
@@ -41,110 +40,65 @@ export class FreighterWalletProvider implements WalletProvider {
     }
   }
 
-  /**
-   * Request access to the user's Freighter wallet.
-   * Returns the connected public key and network.
-   * Throws `WalletError` on failure or user rejection.
-   */
-  async connect(): Promise<WalletConnection> {
-    const available = await this.isAvailable();
-    if (!available) {
-      throw new WalletError(
-        "Freighter wallet extension is not installed or not available. Please install Freighter to continue."
-      );
-    }
-
-    let accessResult: Awaited<ReturnType<typeof requestAccess>>;
-    try {
-      accessResult = await requestAccess();
-    } catch (cause) {
-      throw new WalletError("Failed to request Freighter access", cause);
-    }
-
-    if (accessResult.error) {
-      throw new WalletError(`Freighter access denied: ${accessResult.error}`);
-    }
-
-    let addressResult: Awaited<ReturnType<typeof getAddress>>;
-    try {
-      addressResult = await getAddress();
-    } catch (cause) {
-      throw new WalletError("Failed to retrieve wallet address from Freighter", cause);
-    }
-
-    if (addressResult.error || !addressResult.address) {
-      throw new WalletError(
-        `Could not retrieve wallet address: ${addressResult.error ?? "unknown error"}`
-      );
-    }
-
-    let networkResult: Awaited<ReturnType<typeof getNetwork>>;
-    try {
-      networkResult = await getNetwork();
-    } catch (cause) {
-      throw new WalletError("Failed to retrieve network from Freighter", cause);
-    }
-
-    return {
-      publicKey: addressResult.address,
-      network: networkResult.network ?? "UNKNOWN",
-    };
+/**
+ * Request access to the user's Freighter wallet.
+ * Returns the connected public key.
+ * Throws WalletError on failure or rejection.
+ */
+export async function connectWallet(): Promise<WalletConnection> {
+  const available = await isFreighterAvailable();
+  if (!available) {
+    throw new WalletError(
+      WalletErrorCode.NOT_INSTALLED,
+      "Freighter wallet extension is not installed or not available. Please install Freighter to continue."
+    );
   }
 
-  /**
-   * Disconnect the wallet.
-   * Freighter has no explicit disconnect API; this resolves immediately and
-   * is a no-op at the extension level.
-   */
-  async disconnect(): Promise<void> {
-    // Freighter does not expose a disconnect call; the session state lives
-    // inside the extension. This method is a hook for adapters that do have
-    // session teardown logic (e.g. WalletConnect).
+  let accessResult: Awaited<ReturnType<typeof requestAccess>>;
+  try {
+    accessResult = await requestAccess();
+  } catch (cause) {
+    throw new WalletError(WalletErrorCode.ACCESS_DENIED, "Failed to request Freighter access", {
+      cause,
+    });
   }
 
-  /**
-   * Return the currently connected public key without prompting for access.
-   * Returns `null` if no wallet is connected.
-   */
-  async getAddress(): Promise<string | null> {
-    try {
-      const result = await getAddress();
-      if (result.error || !result.address) return null;
-      return result.address;
-    } catch {
-      return null;
-    }
+  if (accessResult.error) {
+    throw new WalletError(
+      WalletErrorCode.ACCESS_DENIED,
+      `Freighter access denied: ${accessResult.error}`,
+      { context: { reason: accessResult.error } }
+    );
   }
 
-  /**
-   * Sign a transaction XDR string using Freighter.
-   * Returns the signed XDR.
-   * Throws `WalletError` if the user rejects or Freighter is unavailable.
-   */
-  async signTransaction(
-    transactionXdr: string,
-    networkPassphrase: string,
-    accountToSign?: string
-  ): Promise<string> {
-    let result: Awaited<ReturnType<typeof signTransaction>>;
-    try {
-      result = await signTransaction(transactionXdr, {
-        networkPassphrase,
-        ...(accountToSign !== undefined && { address: accountToSign }),
-      });
-    } catch (cause) {
-      throw new WalletError("Failed to sign transaction with Freighter", cause);
-    }
+  let addressResult: Awaited<ReturnType<typeof getAddress>>;
+  try {
+    addressResult = await getAddress();
+  } catch (cause) {
+    throw new WalletError(
+      WalletErrorCode.ADDRESS_UNAVAILABLE,
+      "Failed to retrieve wallet address from Freighter",
+      { cause }
+    );
+  }
 
-    if (result.error) {
-      throw new WalletError(`Freighter signing rejected: ${result.error}`);
-    }
+  if (addressResult.error || !addressResult.address) {
+    throw new WalletError(
+      WalletErrorCode.ADDRESS_UNAVAILABLE,
+      `Could not retrieve wallet address: ${addressResult.error ?? "unknown error"}`,
+      { context: { reason: addressResult.error } }
+    );
+  }
 
-    if (!result.signedTxXdr) {
-      throw new WalletError("Freighter returned no signed transaction XDR");
-    }
-
-    return result.signedTxXdr;
+  let networkResult: Awaited<ReturnType<typeof getNetwork>>;
+  try {
+    networkResult = await getNetwork();
+  } catch (cause) {
+    throw new WalletError(
+      WalletErrorCode.UNAVAILABLE,
+      "Failed to retrieve network from Freighter",
+      { cause }
+    );
   }
 }
 
@@ -192,7 +146,33 @@ export async function signTransactionWithFreighter(
   networkPassphrase: string,
   accountToSign?: string
 ): Promise<string> {
-  return freighterWalletProvider.signTransaction(transactionXdr, networkPassphrase, accountToSign);
+  let result: Awaited<ReturnType<typeof signTransaction>>;
+  try {
+    result = await signTransaction(transactionXdr, {
+      networkPassphrase,
+      ...(accountToSign !== undefined && { address: accountToSign }),
+    });
+  } catch (cause) {
+    throw new WalletError(
+      WalletErrorCode.SIGNING_REJECTED,
+      "Failed to sign transaction with Freighter",
+      { cause }
+    );
+  }
+
+  if (result.error) {
+    throw new WalletError(
+      WalletErrorCode.SIGNING_REJECTED,
+      `Freighter signing rejected: ${result.error}`,
+      { context: { reason: result.error } }
+    );
+  }
+
+  if (!result.signedTxXdr) {
+    throw new WalletError(WalletErrorCode.UNAVAILABLE, "Freighter returned no signed transaction XDR");
+  }
+
+  return result.signedTxXdr;
 }
 
 // Re-export types so consumers don't need a separate import.

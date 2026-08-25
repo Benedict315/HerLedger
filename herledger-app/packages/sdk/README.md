@@ -1,307 +1,199 @@
 # @herledger/sdk
 
-TypeScript SDK for the HerLedger protocol. Provides:
+TypeScript SDK for HerLedger's Soroban contracts, wallet adapter, and
+Stellar/Soroban RPC helpers.
 
-- **Wallet abstraction** — `WalletProvider` interface + `FreighterWalletProvider` adapter
-- **Soroban contract clients** — BusinessRegistry, FinancialLedger, AttestationRegistry
-- **Stellar RPC utilities** — failover, circuit breaker, health check
-- **Encoding helpers** — Soroban XDR encode/decode
+- [`contracts/`](./src/contracts) — typed clients for BusinessRegistry,
+  FinancialLedger, and AttestationRegistry, plus centralized XDR encoding.
+- [`rpc/`](./src/rpc) — Soroban RPC client factory and the transaction
+  lifecycle (simulate → prepare → submit → confirm), with multi-endpoint
+  failover.
+- [`wallet/`](./src/wallet) — Freighter wallet adapter (signer only, not auth).
+- [`types/`](./src/types) — shared application and network types.
+- [`errors/`](./src/errors) — typed error classes with a `kind` discriminator.
+- [`cache/`](./src/cache) — the in-memory TTL query cache used by read-only
+  contract calls.
 
----
+## Query caching
 
-## Table of Contents
+Read-only contract calls (`getBusiness`, `getBusinessByWallet`, `getFinancialEvent`,
+`getBusinessEvents`, `isSupportedAsset`, `getAttestation`, `isValidAttestation`) are
+served through an in-memory TTL cache (`packages/sdk/src/cache/query-cache.ts`):
 
-1. [Wallet Abstraction](#wallet-abstraction)
-   - [WalletProvider interface](#walletprovider-interface)
-   - [FreighterWalletProvider](#freighterwallletprovider)
-   - [Implementing a custom adapter](#implementing-a-custom-adapter)
-   - [useWallet hook (apps/web)](#usewallet-hook-appsweb)
-2. [Contract Clients](#contract-clients)
-3. [RPC Utilities](#rpc-utilities)
-4. [Errors](#errors)
+- **De-duplication**: concurrent identical calls (same contract id + method + args)
+  share a single in-flight RPC request instead of issuing one each.
+- **TTL**: cached results expire after `ttlMs`, which defaults to **30 seconds**.
+  Override per call: `getBusiness(id, config, contracts, { ttlMs: 5_000 })`.
+- **Opt-out**: pass `{ bypassCache: true }` to force a fresh RPC call for that
+  invocation.
+- **Mutation invalidation**: write functions (`registerBusiness`,
+  `updateBusinessMetadata`, `recordFinancialEvent`, `createAttestation`, ...)
+  invalidate the cache entries their contract method affects after a successful
+  `submitAndWait`, so a read immediately after a write does not see a stale value.
+- **Manual control**: `clearQueryCache()` clears everything (handy in tests);
+  `defaultQueryCache.invalidate(key)` / `.clear()` are also exported for
+  advanced use, along with the `QueryCache` class itself if you want a
+  separate, non-shared cache instance.
 
----
+**Why a module-level singleton is safe under SSR/Edge**: cached values are
+read-only, publicly observable contract state — the answer to "what is
+business X" is the same no matter which request or user asked. Sharing the
+cache across concurrent requests in the same process/isolate is what enables
+de-duplication; it introduces no per-user data leakage, and the default 30s
+TTL bounds any staleness from sharing across requests. Serverless/Edge
+runtimes spin up a fresh module instance (and therefore an empty cache) per
+isolate, so there's no risk of a *durable* cross-deployment cache. Callers
+needing hard per-request isolation can construct their own `new QueryCache()`
+or pass `{ bypassCache: true }`.
 
-## Wallet Abstraction
+## RPC timeouts
 
-### WalletProvider interface
-
-`WalletProvider` is the core abstraction. Any wallet (Freighter, Albedo, xBull,
-WalletConnect, …) must implement this interface to be usable in HerLedger
-without changing call sites.
-
-```ts
-import type { WalletProvider, WalletConnection } from "@herledger/sdk";
-```
-
-#### Interface definition
-
-```ts
-interface WalletProvider {
-  /**
-   * Request wallet access and return the connected public key + network.
-   * Throws `WalletError` if the wallet is unavailable or the user rejects.
-   */
-  connect(): Promise<WalletConnection>;
-
-  /**
-   * Disconnect / clear session state.
-   * Implementations that have no session concept may resolve immediately.
-   */
-  disconnect(): Promise<void>;
-
-  /**
-   * Return the currently connected public key, or `null` if not connected.
-   * Must NOT prompt the user — use `connect()` for that.
-   */
-  getAddress(): Promise<string | null>;
-
-  /**
-   * Sign a Stellar transaction XDR string and return the signed XDR.
-   *
-   * @param transactionXdr  - Base64-encoded unsigned transaction envelope.
-   * @param networkPassphrase - Stellar network passphrase used during build.
-   * @param accountToSign   - Optional: the specific account to sign with.
-   * @throws `WalletError` if the user rejects or signing fails.
-   */
-  signTransaction(
-    transactionXdr: string,
-    networkPassphrase: string,
-    accountToSign?: string
-  ): Promise<string>;
-}
-
-interface WalletConnection {
-  publicKey: string; // Stellar G-address
-  network: string; // e.g. "TESTNET", "PUBLIC", "FUTURENET"
-}
-```
-
-#### Design decisions
-
-| Decision                         | Rationale                                                                                                           |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| All methods are `async`          | Wallet APIs are inherently async (browser extension round-trips, hardware signing); sync wrappers would be a lie    |
-| `getAddress()` never prompts     | Separates _reading cached state_ from _requesting permission_; avoids surprising the user on every render           |
-| `disconnect()` is always present | Adapters like WalletConnect have real teardown logic; Freighter resolves immediately since it has no disconnect API |
-| Errors use `WalletError`         | Gives callers a single catch clause; `err.message` is always user-friendly                                          |
-| `accountToSign` is optional      | Most signers default to the connected account; multi-sig flows can override it                                      |
-
----
-
-### FreighterWalletProvider
-
-The default adapter. Wraps the `@stellar/freighter-api` browser extension.
+`simulateAndPrepare` accepts an optional third argument, and `submitAndWait`
+accepts an optional trailing options argument:
 
 ```ts
-import { FreighterWalletProvider, freighterWalletProvider } from "@herledger/sdk";
-
-// Use the singleton (shared instance):
-const wallet: WalletProvider = freighterWalletProvider;
-
-// Or construct your own:
-const wallet = new FreighterWalletProvider();
+simulateAndPrepare(tx, config, { timeoutMs: 10_000 });
+simulateAndPrepare(tx, config, { signal: myAbortController.signal });
 ```
 
-#### Extra method
+- `timeoutMs` defaults to **30 000ms**.
+- A timed-out call, or one whose `signal` fires, rejects with `RpcError` whose
+  `code` is `"TIMEOUT"`.
+- `submitAndWait`'s confirmation poll loop (which can legitimately run longer
+  than a single RPC call's deadline) additionally checks `signal` between
+  polls, so an aborted signal stops polling early even though it isn't itself
+  bounded by `timeoutMs`.
 
-`FreighterWalletProvider` adds one method beyond `WalletProvider`:
+Both parameters are optional and additive — existing two-argument call sites
+are unaffected.
+
+## Transaction lifecycle
+
+`submitAndWait` submits a signed transaction and polls until it is confirmed or
+rejected. It implements the reliability behaviour recommended in the
+[Stellar transaction-submission guide](https://developers.stellar.org/docs/build/guides/basics/submit-transaction).
+
+The confirmation poll loop's total wait budget defaults to 60s and is
+configurable via `maxWaitMs`; the interval between polls defaults to 2s and is
+configurable via `pollIntervalMs`.
 
 ```ts
-class FreighterWalletProvider implements WalletProvider {
-  /**
-   * Returns true if the Freighter extension is installed and accessible.
-   * Does NOT prompt — safe to call silently on page load.
-   */
-  isAvailable(): Promise<boolean>;
-}
+import { submitAndWait } from "@herledger/sdk";
+
+const result = await submitAndWait(signedXdr, config, {
+  maxWaitMs: 90_000,
+  timeoutMs: 10_000,
+  signal: myAbortController.signal,
+});
 ```
 
-#### Backward-compatible functional API
+`submitAndWait`'s third argument may instead be an `onSubmitted` callback
+(`(hash: string) => void`), fired right after the network accepts the
+submission but before polling starts — the earliest point a caller can
+durably persist "this transaction is in flight" (e.g. to localStorage) so a
+resumed session can pick up polling via `pollTransactionStatus` instead of
+losing track of an on-chain submission that outlived the page that made it.
 
-The original functional exports (`connectWallet`, `getConnectedAddress`, etc.)
-are still exported as thin wrappers so existing call sites compile unchanged
-while migrating to `useWallet()`. They are marked `@deprecated`.
+### Fee-bump support
+
+A transaction rejected with `tx_insufficient_fee` during congestion can be
+recovered by wrapping it in a fee-bump envelope, where a separate `feeSource`
+account pays a higher fee. The inner transaction is unchanged (same source,
+sequence number, and signatures).
 
 ```ts
-// Deprecated — still works, use useWallet() in new code
-import {
-  isFreighterAvailable, // → freighterWalletProvider.isAvailable()
-  connectWallet, // → freighterWalletProvider.connect()
-  getConnectedAddress, // → freighterWalletProvider.getAddress()
-  signTransactionWithFreighter, // → freighterWalletProvider.signTransaction()
-} from "@herledger/sdk";
-```
-
----
-
-### Implementing a custom adapter
-
-To add a new wallet (e.g. Albedo), implement `WalletProvider` and inject it
-into `WalletContextProvider` at the app root:
-
-```ts
-// lib/wallet/albedo-provider.ts
-import type { WalletProvider, WalletConnection } from "@herledger/sdk";
-import { WalletError } from "@herledger/sdk";
-import albedo from "@albedo-link/intent";
-
-export class AlbedoWalletProvider implements WalletProvider {
-  async connect(): Promise<WalletConnection> {
-    try {
-      const result = await albedo.publicKey({});
-      return { publicKey: result.pubkey, network: "PUBLIC" };
-    } catch (cause) {
-      throw new WalletError("Albedo connection failed", cause);
-    }
-  }
-
-  async disconnect(): Promise<void> {
-    // Albedo has no session — nothing to do
-  }
-
-  async getAddress(): Promise<string | null> {
-    // Albedo doesn't persist state — return null until connect() is called
-    return null;
-  }
-
-  async signTransaction(xdr: string, networkPassphrase: string): Promise<string> {
-    try {
-      const result = await albedo.tx({ xdr, network: "public" });
-      return result.signed_envelope_xdr;
-    } catch (cause) {
-      throw new WalletError("Albedo signing failed", cause);
-    }
-  }
-}
-```
-
-Then inject it into the provider:
-
-```tsx
-// app/layout.tsx
-import { WalletContextProvider } from "@/lib/wallet/context";
-import { AlbedoWalletProvider } from "@/lib/wallet/albedo-provider";
-
-const albedoProvider = new AlbedoWalletProvider();
-
-export default function RootLayout({ children }) {
-  return (
-    <html lang="en">
-      <body>
-        <WalletContextProvider provider={albedoProvider}>{children}</WalletContextProvider>
-      </body>
-    </html>
-  );
-}
-```
-
-No other code in `apps/web` needs to change — components consume wallet state
-via `useWallet()`, not the adapter directly.
-
----
-
-### useWallet hook (apps/web)
-
-`useWallet()` is the single access point for all wallet state in `apps/web`
-components. It reads from `WalletContext` (mounted by `WalletContextProvider`
-in `app/layout.tsx`).
-
-```tsx
-import { useWallet } from "@/hooks/use-wallet";
-
-function MyComponent() {
-  const {
-    address, // string | null — connected Stellar G-address
-    isConnected, // boolean — true when address is non-null
-    isConnecting, // boolean — true while connect() is in flight
-    error, // string | null — last connection error
-    provider, // WalletProvider — the active adapter instance
-    connect, // () => Promise<void> — request wallet access
-    disconnect, // () => Promise<void> — clear wallet state
-    signTransaction, // (xdr, passphrase, account?) => Promise<string>
-  } = useWallet();
-}
-```
-
-#### Account-change detection
-
-`WalletContextProvider` polls `provider.getAddress()` every **2 seconds**.
-When the connected account changes in Freighter (or any other adapter), the
-context updates within 2 s and all `useWallet()` consumers re-render
-automatically.
-
-This polling approach is used because Freighter does not expose a stable
-cross-browser event for account switches. The 2-second interval satisfies the
-acceptance criterion (≤ 2 s detection latency).
-
-#### Stale-closure safety
-
-The polling callback reads the current address through a `useRef` mirror
-(`addressRef`) rather than a closure over the state variable. This ensures the
-comparison is always against the latest value, not a captured snapshot.
-
-#### Caching
-
-The connected address is cached in context. Components reading `address` from
-`useWallet()` do not issue extra Freighter API calls — only the polling interval
-does, once every 2 seconds, regardless of how many components are mounted.
-
----
-
-## Contract Clients
-
-Each client function takes a `StellarNetworkConfig` and `ContractConfig`:
-
-```ts
-import {
-  registerBusiness,
-  getBusiness,
-  recordFinancialEvent,
-  disputeFinancialEvent,
-  createAttestation,
-} from "@herledger/sdk";
-```
-
-See the generated ABI types in `src/contracts/__generated__/` for the full
-parameter and return shapes.
-
----
-
-## RPC Utilities
-
-```ts
-import {
-  getSorobanRpcServer, // returns the active rpc.Server instance
-  withRpcFailover, // retry callback across multiple RPC endpoints
-  checkRpcHealth, // health check with per-endpoint circuit state
-  getLatestLedger, // current ledger sequence
-} from "@herledger/sdk";
-```
-
-Failover uses a circuit breaker per endpoint (5 failures → OPEN; 30s reset
-timeout by default). Configure via `configureCircuitBreaker()`.
-
----
-
-## Errors
-
-All SDK errors extend `Error` and carry a `kind` discriminant:
-
-```ts
-import {
-  WalletError, // wallet unavailable / user rejected
-  RpcError, // Stellar RPC failure
-  ContractError, // Soroban contract error
-  ValidationError, // input validation failure
-  AuthenticationError, // auth failure
-} from "@herledger/sdk";
+import { submitAndWait, submitWithFeeBump } from "@herledger/sdk";
+import { TransactionBuilder } from "@stellar/stellar-sdk";
 
 try {
-  await wallet.signTransaction(xdr, passphrase);
+  await submitAndWait(signedXdr, config);
 } catch (err) {
-  if (err instanceof WalletError) {
-    console.error("Wallet error:", err.message);
+  // Reconstruct the signed inner transaction, then bump its fee.
+  const innerTx = TransactionBuilder.fromXDR(signedXdr, config.networkPassphrase);
+  const result = await submitWithFeeBump(innerTx, feeSource, "10000000", config);
+}
+```
+
+`submitWithFeeBump(innerTx, feeSource, maxFee, config, options?)` builds the
+fee-bump envelope with `@stellar/stellar-sdk`'s
+`TransactionBuilder.buildFeeBumpTransaction`, signs it with Freighter as
+`feeSource`, then hands off to `submitAndWait`. `maxFee` is the maximum total
+fee the fee source will pay, in stroops — the Stellar docs recommend `>= 10x`
+the original fee.
+
+### Simulation error validation
+
+`simulateAndPrepare` validates the RPC simulation result before assembling a
+transaction. If the simulation returns an error (e.g. a contract call failed,
+or contract state changed between simulation and submission), it throws a
+`ContractError` with `code === "SIMULATION_ERROR"` instead of submitting a
+transaction doomed to fail on-chain.
+
+## Error hierarchy
+
+Every SDK error extends `Error` and carries:
+
+- `code` — a `string` enum specific to that error class (see tables below).
+- `context` — an optional, class-specific typed payload with structured
+  detail (e.g. `{ timeoutMs }`, `{ contractCode, method }`).
+- `cause` — the underlying error/value, if any (standard `Error.cause`).
+
+```ts
+import { RpcError, RpcErrorCode, assertUnreachable, type AppError } from "@herledger/sdk";
+
+function handle(error: AppError) {
+  switch (error.kind) {
+    case "WalletError":
+      /* ... */ break;
+    case "RpcError":
+      switch (error.code) {
+        case RpcErrorCode.TIMEOUT:
+          /* retry */ break;
+        case RpcErrorCode.ALL_ENDPOINTS_UNAVAILABLE:
+        case RpcErrorCode.NO_ENDPOINTS_CONFIGURED:
+        case RpcErrorCode.REQUEST_FAILED:
+        case RpcErrorCode.TRANSACTION_NOT_CONFIRMED:
+        case RpcErrorCode.SIMULATION_FAILED:
+        case RpcErrorCode.SUBMIT_FAILED:
+        case RpcErrorCode.POLL_FAILED:
+        case RpcErrorCode.POLL_TIMEOUT:
+        case RpcErrorCode.ABORTED:
+          /* surface to user */ break;
+      }
+      break;
+    case "ContractError":
+    case "ValidationError":
+    case "AuthenticationError":
+      /* ... */ break;
+    default:
+      return assertUnreachable(error);
   }
 }
 ```
+
+`assertUnreachable` makes the `default` branch a compile error if a new
+`AppError` subtype is ever added without being handled.
+
+### Error codes
+
+**`WalletError`** (`WalletErrorCode`): `NOT_INSTALLED`, `ACCESS_DENIED`,
+`SIGNING_REJECTED`, `ADDRESS_UNAVAILABLE`, `UNAVAILABLE`, `UNKNOWN`.
+
+**`RpcError`** (`RpcErrorCode`): `REQUEST_FAILED`, `TIMEOUT`,
+`ALL_ENDPOINTS_UNAVAILABLE`, `NO_ENDPOINTS_CONFIGURED`,
+`TRANSACTION_NOT_CONFIRMED`, `SIMULATION_FAILED`, `SUBMIT_FAILED`,
+`POLL_FAILED`, `POLL_TIMEOUT`, `ABORTED`.
+
+**`ContractError`** (`ContractErrorCode`): `SIMULATION_ERROR`,
+`SUBMISSION_ERROR`, `ON_CHAIN_FAILURE`, `DECODE_ERROR`, `ENCODE_ERROR`,
+`UNKNOWN_VARIANT`.
+
+**`ValidationError`** (`ValidationErrorCode`): `MALFORMED_INPUT`,
+`ADDRESS_NOT_REGISTERED`, `ADDRESS_MISMATCH`.
+
+**`AuthenticationError`** (`AuthenticationErrorCode`): `UNAUTHENTICATED`,
+`FORBIDDEN`, `SESSION_EXPIRED` — reserved for callers layering authentication
+on top of the SDK; the SDK itself does not currently throw this error.
+
+See `packages/sdk/src/errors/index.ts` for the full JSDoc on each code and
+context shape.
