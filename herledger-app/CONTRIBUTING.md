@@ -220,4 +220,14 @@ CI checks enforce schema and migration sanity:
 - **Schema Drift Check:** CI compares the current schema with the committed migrations using `prisma migrate diff`. If a schema change exists without a corresponding migration file, CI will fail.
 - **Unsafe Migration Detection:** CI checks for unsafe migrations, such as adding a new `NOT NULL` column without a `DEFAULT` to an existing table. Any such statement will fail CI to prevent downtime or deployment errors.
 
+### 4. Adding Indexes for New Queryable Fields
+
+When adding a new field that will be used in `WHERE`, `ORDER BY`, or `GROUP BY` clauses:
+
+- **Single-column queries:** Add a `@@index([fieldName])` in the Prisma schema.
+- **Composite queries:** If a query filters by two or more columns together (e.g. `(businessId, status)`), use a composite `@@index([col1, col2])`. Composite indexes also cover queries that filter on the leading column(s) alone, so a composite `(businessId, status)` subsumes a standalone `(businessId)` index.
+- **Partial indexes:** For queries that only need a subset of rows (e.g. only `active` records), consider a Prisma `@@index([field], where: "condition")` to keep the index small.
+- **Index rationale:** When adding indexes, document in the PR description why each index was chosen (composite vs. single-column, partial index considered, etc.) and reference the query patterns it supports.
+- **Never remove an index without replacing it** — existing production queries depend on it.
+
 - [ ] CI passes
