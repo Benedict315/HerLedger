@@ -2,6 +2,8 @@ import { getAttestation } from "@herledger/sdk";
 import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
+import { rateLimitKey } from "@/lib/api/rate-limit";
+import { writeLimiter } from "@/lib/api/rate-limit-config";
 import { auth } from "@/lib/auth/server";
 import { getPrismaClient } from "@/lib/db/client";
 import { getServerStellarConfig, getServerContractConfig } from "@/lib/stellar/server-config";
@@ -13,6 +15,10 @@ export async function POST(
   { params }: { params: Promise<{ attestationId: string }> }
 ) {
   const session = await auth.api.getSession({ headers: await headers() });
+
+  const limited = writeLimiter.check(rateLimitKey(req, session?.user?.id));
+  if (limited) return limited;
+
   if (!session) {
     return NextResponse.json(
       { data: null, error: { code: "UNAUTHORIZED", message: "Not authenticated" } },

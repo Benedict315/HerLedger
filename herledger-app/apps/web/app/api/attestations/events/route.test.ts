@@ -93,6 +93,7 @@ describe("GET /api/attestations/events", () => {
           findById: vi.fn(),
           findUpdatedAfter: vi.fn(),
           findAttestableEvents: vi.fn().mockResolvedValue([{ eventId: "ev_1" }]),
+          summarize: vi.fn(),
         },
       })
     );

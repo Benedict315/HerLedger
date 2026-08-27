@@ -1,6 +1,10 @@
 import { getStellarNetworkConfig } from "@herledger/config/server";
 import { checkRpcHealth } from "@herledger/sdk";
 
+import { NextRequest } from "next/server";
+
+import { getClientIp } from "@/lib/api/rate-limit";
+import { readLimiter } from "@/lib/api/rate-limit-config";
 import { typedJson } from "@/lib/api/route-handler";
 import { getPrismaClient } from "@/lib/db/client";
 
@@ -80,4 +84,11 @@ export async function GET(): Promise<Response> {
     error: null,
     meta: null,
   });
+export function GET(req?: NextRequest) {
+  if (req) {
+    const limited = readLimiter.check(getClientIp(req));
+    if (limited) return limited;
+  }
+
+  return typedJson<HealthResponse>({ data: { status: "ok" }, error: null });
 }

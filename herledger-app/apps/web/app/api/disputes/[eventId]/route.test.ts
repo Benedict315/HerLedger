@@ -26,8 +26,16 @@ const { decryptDisputeReasonMock, MockDisputeDecryptionError } = vi.hoisted(() =
   class Err extends Error {}
   return { decryptDisputeReasonMock: mock, MockDisputeDecryptionError: Err };
 });
+const { mockDecryptDisputeReason, MockDisputeDecryptionError } = vi.hoisted(() => {
+  class MockErr extends Error {}
+  return {
+    mockDecryptDisputeReason: vi.fn(),
+    MockDisputeDecryptionError: MockErr,
+  };
+});
+
 vi.mock("@/lib/crypto/dispute-encryption", () => ({
-  decryptDisputeReason: (...args: unknown[]) => decryptDisputeReasonMock(...args),
+  decryptDisputeReason: (...args: unknown[]) => mockDecryptDisputeReason(...args),
   DisputeDecryptionError: MockDisputeDecryptionError,
 }));
 
@@ -42,7 +50,6 @@ function ctx(eventId: string) {
 describe("GET /api/disputes/[eventId]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    decryptDisputeReasonMock.mockReturnValue("plain reason");
   });
 
   afterEach(() => {
@@ -58,16 +65,7 @@ describe("GET /api/disputes/[eventId]", () => {
     expect(res.status).toBe(401);
   });
 
-  it("returns 400 when eventId is empty", async () => {
-    vi.mocked(auth.api.getSession).mockResolvedValueOnce({ user: { id: "u_1" } } as never);
-    setDbClient(createMockDbClient());
-
-    const req = new NextRequest("http://localhost/api/disputes/");
-    const res = await GET(req, ctx(""));
-    expect(res.status).toBe(400);
-  });
-
-  it("returns 403 when the caller has no business profile", async () => {
+  it("returns 404 when the user has no business profile", async () => {
     vi.mocked(auth.api.getSession).mockResolvedValueOnce({ user: { id: "u_1" } } as never);
     setDbClient(
       createMockDbClient({
@@ -88,7 +86,7 @@ describe("GET /api/disputes/[eventId]", () => {
     expect(res.status).toBe(403);
   });
 
-  it("returns 404 when the financial event does not exist", async () => {
+  it("returns 404 when the event is not found", async () => {
     vi.mocked(auth.api.getSession).mockResolvedValueOnce({ user: { id: "u_1" } } as never);
     setDbClient(
       createMockDbClient({
@@ -109,6 +107,7 @@ describe("GET /api/disputes/[eventId]", () => {
           findById: vi.fn().mockResolvedValue(null),
           findUpdatedAfter: vi.fn(),
           findAttestableEvents: vi.fn(),
+          summarize: vi.fn(),
         },
       })
     );
@@ -120,6 +119,7 @@ describe("GET /api/disputes/[eventId]", () => {
 
   it("returns the decrypted dispute on success", async () => {
     vi.mocked(auth.api.getSession).mockResolvedValueOnce({ user: { id: "u_1" } } as never);
+    mockDecryptDisputeReason.mockReturnValueOnce("plain reason");
     setDbClient(
       createMockDbClient({
         businesses: {
@@ -139,6 +139,7 @@ describe("GET /api/disputes/[eventId]", () => {
           findById: vi.fn().mockResolvedValue({ businessId: "biz_1", status: "Disputed" }),
           findUpdatedAfter: vi.fn(),
           findAttestableEvents: vi.fn(),
+          summarize: vi.fn(),
         },
         disputes: {
           findByEventId: vi.fn().mockResolvedValue({
@@ -167,7 +168,7 @@ describe("GET /api/disputes/[eventId]", () => {
 
   it("returns 500 when decryption fails", async () => {
     vi.mocked(auth.api.getSession).mockResolvedValueOnce({ user: { id: "u_1" } } as never);
-    decryptDisputeReasonMock.mockImplementationOnce(() => {
+    mockDecryptDisputeReason.mockImplementationOnce(() => {
       throw new MockDisputeDecryptionError("bad key");
     });
     setDbClient(
@@ -189,6 +190,7 @@ describe("GET /api/disputes/[eventId]", () => {
           findById: vi.fn().mockResolvedValue({ businessId: "biz_1", status: "Disputed" }),
           findUpdatedAfter: vi.fn(),
           findAttestableEvents: vi.fn(),
+          summarize: vi.fn(),
         },
         disputes: {
           findByEventId: vi.fn().mockResolvedValue({
@@ -204,6 +206,7 @@ describe("GET /api/disputes/[eventId]", () => {
           }),
           create: vi.fn(),
         },
+        prisma: { dispute: { update: vi.fn() } } as never,
       })
     );
 

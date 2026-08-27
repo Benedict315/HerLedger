@@ -35,10 +35,11 @@ describe("GET /api/health", () => {
       activeEndpoint: "https://soroban-testnet.stellar.org",
       latestLedger: 12345,
       endpoints: [],
-    } as never);
+    });
 
     const res = await GET();
     expect(res.status).toBe(200);
+
     const body = await res.json();
     expect(body.data.status).toBe("ok");
     expect(body.data.rpc.healthy).toBe(true);
@@ -49,23 +50,28 @@ describe("GET /api/health", () => {
     expect(body.data.indexer).toBeDefined();
     expect(body.data.indexer.healthy).toBe(true);
     expect(body.meta).toBeNull();
+    expect(body.data.rpc.latestLedger).toBe(12345);
+    expect(body.error).toBeNull();
   });
 
   it("returns status degraded when the RPC is unhealthy", async () => {
     vi.mocked(checkRpcHealth).mockResolvedValueOnce({
       healthy: false,
       activeEndpoint: null,
-      error: "all endpoints down",
+      error: "RPC unreachable",
       endpoints: [],
-    } as never);
+    });
 
     const res = await GET();
     expect(res.status).toBe(200);
+
     const body = await res.json();
     expect(body.data.status).toBe("degraded");
     expect(body.data.rpc.healthy).toBe(false);
     expect(body.data.rpc.error).toBe("all endpoints down");
     expect(body.data.version).toBeDefined();
     expect(body.meta).toBeNull();
+    expect(body.data.rpc.error).toBe("RPC unreachable");
+    expect(body.error).toBeNull();
   });
 });
