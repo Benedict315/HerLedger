@@ -8,13 +8,14 @@ import { typedJson } from "@/lib/api/route-handler";
 import { auth } from "@/lib/auth/server";
 import { getAttestations } from "@/lib/data/attestations";
 import { getPrismaClient } from "@/lib/db/client";
+import { withRateLimit } from "@/lib/rate-limit";
 
 import { RequestSchema } from "./schema";
 import type { AttestationsResponse, AttestationDto } from "./schema";
 
 const prisma = getPrismaClient();
 
-export async function GET(req: NextRequest) {
+export const GET = withRateLimit(async (req: NextRequest) => {
   const session = await auth.api.getSession({ headers: await headers() });
 
   const limited = readLimiter.check(rateLimitKey(req, session?.user?.id));
@@ -22,7 +23,9 @@ export async function GET(req: NextRequest) {
 
   if (!session) {
     return typedJson<AttestationsResponse>(
-      { data: null, error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
+      { data: null, error: { code: "UNAUTHORIZED", message: "Not authenticated" },
+          meta: null
+        },
       { status: 401 }
     );
   }
@@ -33,8 +36,10 @@ export async function GET(req: NextRequest) {
   });
   if (!parsed.success) {
     return typedJson<AttestationsResponse>(
-      { data: null, error: { code: "INVALID_PARAMS", message: "Invalid query params" } },
-      { status: 400 }
+      { data: null, error: { code: "INVALID_PARAMS", message: "Invalid query params" },
+          meta: null
+        },
+      { status: 422 }
     );
   }
 
@@ -71,5 +76,9 @@ export async function GET(req: NextRequest) {
     projectFields(att, allowedFields)
   ) as AttestationDto[];
 
-  return typedJson<AttestationsResponse>({ data: { attestations: projectedAttestations }, error: null });
-}
+  return typedJson<AttestationsResponse>({
+    data: { attestations: projectedAttestations },
+    error: null,
+    meta: null,
+  });
+});

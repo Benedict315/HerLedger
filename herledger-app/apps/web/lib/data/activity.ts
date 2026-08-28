@@ -1,5 +1,5 @@
 import "server-only";
-
+import { getDbClient } from "@herledger/db";
 import { unstable_cache } from "next/cache";
 
 import type { ActivityRecentData } from "@/app/api/activity/recent/schema";

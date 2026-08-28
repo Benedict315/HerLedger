@@ -19,7 +19,7 @@ interface CurrentBusinessResponse {
   error: { code: string; message: string } | null;
 }
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   const session = await auth.api.getSession({ headers: await headers() });
 
   const limited = readLimiter.check(rateLimitKey(req, session?.user?.id));

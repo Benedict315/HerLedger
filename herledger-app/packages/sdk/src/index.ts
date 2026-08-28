@@ -10,6 +10,23 @@
 // ---------------------------------------------------------------------------
 
 // Types
+export type {
+  Business,
+  FinancialEvent,
+  EventType,
+  EventStatus,
+  Attestation,
+  AttestationStatus,
+  Attester,
+  StellarNetworkConfig,
+  ContractConfig,
+  TransactionResult,
+  NetworkId,
+  Brand,
+  ContractAddress,
+  HexString32,
+} from "./types/index.js";
+export type { ApiResponse, ApiError, ApiMeta, ApiErrorResponse } from "./types/api.js";
 export * from "./types/index.js";
 
 // Attester registry

@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { auth } from "@/lib/auth/server";
+import { clearRateLimitStore } from "@/lib/rate-limit";
 
 import { GET } from "./route";
 
@@ -17,6 +18,10 @@ vi.mock("@/lib/auth/server", () => ({
   },
 }));
 
+const { findFirstMock, getAttestationsMock } = vi.hoisted(() => ({
+  findFirstMock: vi.fn(),
+  getAttestationsMock: vi.fn(),
+}));
 const { mockFindFirst, mockGetAttestations } = vi.hoisted(() => ({
   mockFindFirst: vi.fn(),
   mockGetAttestations: vi.fn(),
@@ -35,6 +40,7 @@ vi.mock("@/lib/data/attestations", () => ({
 describe("GET /api/attestations", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearRateLimitStore();
   });
 
   it("returns 401 when not authenticated", async () => {
@@ -45,12 +51,12 @@ describe("GET /api/attestations", () => {
     expect(res.status).toBe(401);
   });
 
-  it("returns 400 for an invalid includeRevoked query param", async () => {
+  it("returns 422 for an invalid includeRevoked query param", async () => {
     vi.mocked(auth.api.getSession).mockResolvedValueOnce({ user: { id: "u_1" } } as never);
 
     const req = new NextRequest("http://localhost/api/attestations?includeRevoked=not-a-bool");
     const res = await GET(req);
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(422);
     const body = await res.json();
     expect(body.error.code).toBe("INVALID_PARAMS");
   });

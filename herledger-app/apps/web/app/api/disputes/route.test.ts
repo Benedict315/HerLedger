@@ -17,6 +17,11 @@ vi.mock("@/lib/auth/server", () => ({
   },
 }));
 
+const { businessFindFirstMock, disputeFindManyMock, disputeCountMock } = vi.hoisted(() => ({
+  businessFindFirstMock: vi.fn(),
+  disputeFindManyMock: vi.fn(),
+  disputeCountMock: vi.fn(),
+}));
 const { mockBusinessFindFirst, mockDisputeFindMany, mockDisputeCount } = vi.hoisted(() => ({
   mockBusinessFindFirst: vi.fn(),
   mockDisputeFindMany: vi.fn(),

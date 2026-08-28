@@ -37,7 +37,7 @@ export function SignInForm() {
         } else {
           const rawCallback = searchParams?.get("callbackUrl");
           const targetUrl = validateCallbackUrl(rawCallback) || "/dashboard";
-          router.push(targetUrl);
+          router.push(targetUrl as unknown as Parameters<typeof router.push>[0]);
         }
       } catch {
         setError("An unexpected error occurred. Please try again.");

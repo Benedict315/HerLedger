@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import { expect } from "@playwright/test";
+
 import { test } from "./fixtures/auth";
 import { mockFreighter } from "./helpers/mock-wallet";
 import { ActivityPage } from "./page-objects/ActivityPage";
