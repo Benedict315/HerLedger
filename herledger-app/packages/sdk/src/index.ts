@@ -88,8 +88,12 @@ export { simulateAndPrepare, submitAndWait, pollTransactionStatus } from "./rpc/
 export { DEFAULT_RPC_TIMEOUT_MS } from "./rpc/timeout.js";
 export type { RpcCallOptions } from "./rpc/timeout.js";
 
-// Wallet
+// Wallet — interface + Freighter adapter
+export type { WalletProvider, WalletConnection } from "./wallet/types.js";
 export {
+  FreighterWalletProvider,
+  freighterWalletProvider,
+  // Backward-compatible functional API (deprecated — use useWallet() hook)
   isFreighterAvailable,
   connectWallet,
   getConnectedAddress,

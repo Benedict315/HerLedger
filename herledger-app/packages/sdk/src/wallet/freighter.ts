@@ -8,14 +8,9 @@ import {
 import { WalletError, WalletErrorCode } from "../errors/index.js";
 
 // ---------------------------------------------------------------------------
-// Freighter wallet adapter
-// Freighter is a signer only — not application authentication.
+// FreighterWalletProvider
+// Implements WalletProvider by delegating to the Freighter browser extension.
 // ---------------------------------------------------------------------------
-
-export interface WalletConnection {
-  publicKey: string;
-  network: string;
-}
 
 /**
  * Check whether the Freighter extension is available in this browser context.
@@ -28,14 +23,18 @@ export interface WalletConnection {
  * if (await isFreighterAvailable()) await connectWallet();
  * ```
  */
-export async function isFreighterAvailable(): Promise<boolean> {
-  try {
-    const result = await isConnected();
-    return result.isConnected;
-  } catch {
-    return false;
+export class FreighterWalletProvider implements WalletProvider {
+  /**
+   * Check whether the Freighter extension is installed and accessible.
+   */
+  async isAvailable(): Promise<boolean> {
+    try {
+      const result = await isConnected();
+      return result.isConnected;
+    } catch {
+      return false;
+    }
   }
-}
 
 /**
  * Request access to the user's Freighter wallet and return its connected
@@ -105,11 +104,35 @@ export async function connectWallet(): Promise<WalletConnection> {
       { cause }
     );
   }
+}
 
-  return {
-    publicKey: addressResult.address,
-    network: networkResult.network ?? "UNKNOWN",
-  };
+// ---------------------------------------------------------------------------
+// Singleton instance — convenient for components that don't need to
+// construct a provider themselves.
+// ---------------------------------------------------------------------------
+
+/** Default shared FreighterWalletProvider instance. */
+export const freighterWalletProvider = new FreighterWalletProvider();
+
+// ---------------------------------------------------------------------------
+// Backward-compatible functional API
+// These exports preserve the pre-abstraction surface so existing call sites
+// (wallet-connect.tsx, dispute-form.tsx, …) keep compiling while they are
+// progressively migrated to useWallet().
+// ---------------------------------------------------------------------------
+
+/**
+ * @deprecated Use `FreighterWalletProvider.isAvailable()` or the `useWallet()` hook instead.
+ */
+export async function isFreighterAvailable(): Promise<boolean> {
+  return freighterWalletProvider.isAvailable();
+}
+
+/**
+ * @deprecated Use `FreighterWalletProvider.connect()` or the `useWallet()` hook instead.
+ */
+export async function connectWallet(): Promise<WalletConnection> {
+  return freighterWalletProvider.connect();
 }
 
 /**
@@ -125,13 +148,7 @@ export async function connectWallet(): Promise<WalletConnection> {
  * ```
  */
 export async function getConnectedAddress(): Promise<string | null> {
-  try {
-    const result = await getAddress();
-    if (result.error || !result.address) return null;
-    return result.address;
-  } catch {
-    return null;
-  }
+  return freighterWalletProvider.getAddress();
 }
 
 /**
@@ -188,3 +205,6 @@ export async function signTransactionWithFreighter(
 
   return result.signedTxXdr;
 }
+
+// Re-export types so consumers don't need a separate import.
+export type { WalletConnection, WalletProvider };

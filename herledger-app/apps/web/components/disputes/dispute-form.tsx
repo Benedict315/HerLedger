@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { FormField } from "@/components/ui/form-field";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { useWallet } from "@/components/wallet/wallet-provider";
+import { useWallet } from "@/hooks/use-wallet";
 import { getContractConfig } from "@/lib/stellar/network";
 
 interface DisputeFormProps {
@@ -40,6 +40,8 @@ function hashReason(reason: string): string {
 }
 
 export function DisputeForm({ eventId, onSuccess }: DisputeFormProps) {
+  const { address: ownerAddress } = useWallet();
+
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
