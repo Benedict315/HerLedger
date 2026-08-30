@@ -12,7 +12,7 @@
  */
 
 import type { WalletProvider } from "@herledger/sdk";
-import { WalletError } from "@herledger/sdk";
+import { WalletError, WalletErrorCode } from "@herledger/sdk";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock React's useContext at the top level so the hoisting warning is resolved.
@@ -86,7 +86,7 @@ describe("WalletProvider interface", () => {
 
   it("signTransaction() accepts an optional accountToSign parameter", async () => {
     await stub.signTransaction("XDR", "PASSPHRASE", "GACCOUNT");
-    // eslint-disable-next-line @typescript-eslint/unbound-method
+
     expect(stub.signTransaction).toHaveBeenCalledWith("XDR", "PASSPHRASE", "GACCOUNT");
   });
 });
@@ -100,7 +100,12 @@ describe("WalletProvider error propagation", () => {
     const stub = makeStubProvider({
       connect: vi
         .fn()
-        .mockRejectedValue(new WalletError("Freighter wallet extension is not installed")),
+        .mockRejectedValue(
+          new WalletError(
+            WalletErrorCode.NOT_INSTALLED,
+            "Freighter wallet extension is not installed"
+          )
+        ),
     });
 
     await expect(stub.connect()).rejects.toThrow(WalletError);
@@ -111,7 +116,12 @@ describe("WalletProvider error propagation", () => {
     const stub = makeStubProvider({
       signTransaction: vi
         .fn()
-        .mockRejectedValue(new WalletError("Freighter signing rejected: User rejected")),
+        .mockRejectedValue(
+          new WalletError(
+            WalletErrorCode.SIGNING_REJECTED,
+            "Freighter signing rejected: User rejected"
+          )
+        ),
     });
 
     await expect(stub.signTransaction("XDR", "PASSPHRASE")).rejects.toThrow(WalletError);
@@ -119,7 +129,7 @@ describe("WalletProvider error propagation", () => {
   });
 
   it("WalletError has the expected name and message", () => {
-    const err = new WalletError("test error");
+    const err = new WalletError(WalletErrorCode.UNKNOWN, "test error");
     expect(err.name).toBe("WalletError");
     expect(err.message).toBe("test error");
     expect(err instanceof WalletError).toBe(true);
@@ -128,7 +138,7 @@ describe("WalletProvider error propagation", () => {
 
   it("WalletError captures cause", () => {
     const cause = new Error("original");
-    const err = new WalletError("wrapper", cause);
+    const err = new WalletError(WalletErrorCode.UNKNOWN, "wrapper", { cause });
     expect(err.cause).toBe(cause);
   });
 });
@@ -214,16 +224,16 @@ describe("signTransaction delegation", () => {
     const result = await stub.signTransaction(XDR, PASSPHRASE);
 
     expect(result).toBe("SIGNED_XDR");
-    // eslint-disable-next-line @typescript-eslint/unbound-method
+
     expect(stub.signTransaction).toHaveBeenCalledOnce();
-    // eslint-disable-next-line @typescript-eslint/unbound-method
+
     expect(stub.signTransaction).toHaveBeenCalledWith(XDR, PASSPHRASE);
   });
 
   it("passes accountToSign through to the provider", async () => {
     const stub = makeStubProvider();
     await stub.signTransaction("XDR", "PASSPHRASE", "GSPECIFIC_ACCOUNT");
-    // eslint-disable-next-line @typescript-eslint/unbound-method
+
     expect(stub.signTransaction).toHaveBeenCalledWith("XDR", "PASSPHRASE", "GSPECIFIC_ACCOUNT");
   });
 });
@@ -255,9 +265,8 @@ describe("connect / disconnect lifecycle", () => {
       await stub.disconnect();
     }
 
-    // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(stub.connect).toHaveBeenCalledTimes(3);
-    // eslint-disable-next-line @typescript-eslint/unbound-method
+
     expect(stub.disconnect).toHaveBeenCalledTimes(3);
   });
 });

@@ -1,4 +1,4 @@
-import type { EventStatus, AttestationStatus } from "@herledger/sdk/types";
+import type { EventStatus, AttestationStatus } from "@herledger/sdk";
 
 export type Status = EventStatus | AttestationStatus;
 

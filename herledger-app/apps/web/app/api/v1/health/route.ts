@@ -1,6 +1,5 @@
 import { getStellarNetworkConfig } from "@herledger/config/server";
 import { checkRpcHealth } from "@herledger/sdk";
-
 import { NextRequest } from "next/server";
 
 import { getClientIp } from "@/lib/api/rate-limit";
@@ -17,7 +16,11 @@ import type { HealthResponse } from "./schema";
 const DB_TIMEOUT_MS = 2000;
 const INDEXER_TIMEOUT_MS = 2000;
 
-async function pingDb(): Promise<{ healthy: boolean; latencyMs: number | null; error?: string | null }> {
+async function pingDb(): Promise<{
+  healthy: boolean;
+  latencyMs: number | null;
+  error?: string | null;
+}> {
   const prisma = getPrismaClient();
   const start = Date.now();
   try {
@@ -32,7 +35,11 @@ async function pingDb(): Promise<{ healthy: boolean; latencyMs: number | null; e
   }
 }
 
-async function pingIndexer(): Promise<{ healthy: boolean; latencyMs: number | null; error?: string | null }> {
+async function pingIndexer(): Promise<{
+  healthy: boolean;
+  latencyMs: number | null;
+  error?: string | null;
+}> {
   const url = process.env.INDEXER_API_URL ?? "http://localhost:4000";
   const endpoint = `${url.replace(/\/$/, "")}/v1/health`;
   const start = Date.now();
@@ -56,7 +63,12 @@ async function pingIndexer(): Promise<{ healthy: boolean; latencyMs: number | nu
   }
 }
 
-export async function GET(): Promise<Response> {
+export async function GET(req?: NextRequest) {
+  if (req) {
+    const limited = readLimiter.check(getClientIp(req));
+    if (limited) return limited;
+  }
+
   const config = getStellarNetworkConfig();
   const [rpcHealth, dbHealth, indexerHealth] = await Promise.all([
     checkRpcHealth(config),
@@ -84,11 +96,4 @@ export async function GET(): Promise<Response> {
     error: null,
     meta: null,
   });
-export function GET(req?: NextRequest) {
-  if (req) {
-    const limited = readLimiter.check(getClientIp(req));
-    if (limited) return limited;
-  }
-
-  return typedJson<HealthResponse>({ data: { status: "ok" }, error: null });
 }

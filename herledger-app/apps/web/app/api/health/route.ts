@@ -1,6 +1,9 @@
 import { getStellarNetworkConfig } from "@herledger/config/server";
 import { checkRpcHealth } from "@herledger/sdk";
+import { NextRequest } from "next/server";
 
+import { getClientIp } from "@/lib/api/rate-limit";
+import { readLimiter } from "@/lib/api/rate-limit-config";
 import { typedJson } from "@/lib/api/route-handler";
 import { getPrismaClient } from "@/lib/db/client";
 
@@ -13,7 +16,11 @@ import type { HealthResponse } from "./schema";
 const DB_TIMEOUT_MS = 2000;
 const INDEXER_TIMEOUT_MS = 2000;
 
-async function pingDb(): Promise<{ healthy: boolean; latencyMs: number | null; error?: string | null }> {
+async function pingDb(): Promise<{
+  healthy: boolean;
+  latencyMs: number | null;
+  error?: string | null;
+}> {
   const prisma = getPrismaClient();
   const start = Date.now();
   try {
@@ -28,7 +35,11 @@ async function pingDb(): Promise<{ healthy: boolean; latencyMs: number | null; e
   }
 }
 
-async function pingIndexer(): Promise<{ healthy: boolean; latencyMs: number | null; error?: string | null }> {
+async function pingIndexer(): Promise<{
+  healthy: boolean;
+  latencyMs: number | null;
+  error?: string | null;
+}> {
   const url = process.env.INDEXER_API_URL ?? "http://localhost:4000";
   const endpoint = `${url.replace(/\/$/, "")}/v1/health`;
   const start = Date.now();
@@ -44,22 +55,13 @@ async function pingIndexer(): Promise<{ healthy: boolean; latencyMs: number | nu
     return { healthy: true, latencyMs, error: null };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Indexer ping failed";
+    // AbortError from timeout should be reported as timeout
     if (message.includes("aborted") || message.includes("timeout")) {
       return { healthy: false, latencyMs: null, error: "Indexer ping timeout" };
     }
     return { healthy: false, latencyMs: null, error: message };
   }
 }
-
-export async function GET(): Promise<Response> {
-import { NextRequest } from "next/server";
-
-import { getClientIp } from "@/lib/api/rate-limit";
-import { readLimiter } from "@/lib/api/rate-limit-config";
-import { typedJson } from "@/lib/api/route-handler";
-
-
-import type { HealthResponse } from "./schema";
 
 export async function GET(req?: NextRequest) {
   if (req) {

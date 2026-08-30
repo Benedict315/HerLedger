@@ -1,7 +1,4 @@
 import { getDbClient } from "@herledger/db";
-import { NextResponse } from "next/server";
-
-import { auth } from "@/lib/auth/server";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 
