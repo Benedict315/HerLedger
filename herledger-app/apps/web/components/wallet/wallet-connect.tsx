@@ -46,7 +46,13 @@ export function WalletConnect({ onConnected }: WalletConnectProps) {
     }
   }, [connectedAddress]);
 
+  const isConnecting = loading;
+  const isConnected = Boolean(connectedAddress);
+  const disconnect = handleDisconnect;
+
   async function handleConnect() {
+    setLoading(true);
+    setError(null);
     try {
       const { publicKey } = await connectWallet();
       connect(publicKey);
