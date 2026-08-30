@@ -40,7 +40,7 @@ function hashReason(reason: string): string {
 }
 
 export function DisputeForm({ eventId, onSuccess }: DisputeFormProps) {
-  const { connectedAddress: ownerAddress, refreshWallet } = useWallet();
+  const { address: ownerAddress } = useWallet();
 
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
@@ -68,7 +68,6 @@ export function DisputeForm({ eventId, onSuccess }: DisputeFormProps) {
     setLoading(true);
 
     try {
-      const ownerAddress = connectedAddress ?? (await refreshWallet());
       if (!ownerAddress) {
         setError("No Stellar wallet connected. Please connect your wallet first.");
         setLoading(false);
