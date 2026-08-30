@@ -40,14 +40,13 @@ function hashReason(reason: string): string {
 }
 
 export function DisputeForm({ eventId, onSuccess }: DisputeFormProps) {
-  const { address: ownerAddress } = useWallet();
+  const { connectedAddress: ownerAddress, refreshWallet } = useWallet();
 
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [saveWarning, setSaveWarning] = useState<string | null>(null);
-  const { connectedAddress, refreshWallet } = useWallet();
 
   // The success view replaces the form entirely, which would otherwise drop
   // focus back to <body>; move it to the success heading instead so
