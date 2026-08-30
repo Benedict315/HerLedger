@@ -6,6 +6,7 @@ import {
   getNetwork,
 } from "@stellar/freighter-api";
 import { WalletError, WalletErrorCode } from "../errors/index.js";
+import type { WalletConnection, WalletProvider } from "./types.js";
 
 import type { WalletConnection, WalletProvider } from "./types.js";
 
@@ -14,14 +15,6 @@ import type { WalletConnection, WalletProvider } from "./types.js";
 // Implements WalletProvider by delegating to the Freighter browser extension.
 // ---------------------------------------------------------------------------
 
-/**
- * Freighter wallet adapter.
- *
- * Freighter is a signer only — not application authentication. This provider
- * delegates every call to the Freighter browser extension and converts its
- * often-stringly errors into the typed `WalletError` hierarchy so the rest of
- * the app can handle all wallet adapters uniformly.
- */
 export class FreighterWalletProvider implements WalletProvider {
   /**
    * Check whether the Freighter extension is installed and accessible.
@@ -39,8 +32,14 @@ export class FreighterWalletProvider implements WalletProvider {
    * Request access to the user's Freighter wallet and return its connected
    * public key and network.
    *
+   * @returns A `WalletConnection` with `publicKey` and `network`.
    * @throws {WalletError} if Freighter is unavailable, access is denied, or the
    *   address/network cannot be retrieved.
+   *
+   * @example
+   * ```ts
+   * const { publicKey } = await connectWallet();
+   * ```
    */
   async connect(): Promise<WalletConnection> {
     const available = await this.isAvailable();
@@ -105,21 +104,24 @@ export class FreighterWalletProvider implements WalletProvider {
   }
 
   /**
-   * Freighter keeps no persistent local session to clear, so this resolves
-   * immediately to satisfy the `WalletProvider` contract.
+   * Freighter has no disconnect API; there is no local session state to clear.
    */
   async disconnect(): Promise<void> {
     return;
   }
 
   /**
-   * Return the currently connected public key (without prompting the user),
-   * or `null` if no wallet is connected or Freighter is unavailable.
+   * Get the currently connected public key without prompting for access.
+   *
+   * @returns The connected `G...` address, or `null` if no wallet is connected
+   *   or Freighter is unavailable.
    */
   async getAddress(): Promise<string | null> {
     try {
       const result = await getAddress();
-      if (result.error || !result.address) return null;
+      if (result.error || !result.address) {
+        return null;
+      }
       return result.address;
     } catch {
       return null;
@@ -129,6 +131,12 @@ export class FreighterWalletProvider implements WalletProvider {
   /**
    * Sign a transaction XDR string using Freighter and return the signed XDR.
    *
+   * @param transactionXdr - Base64-encoded unsigned (or partially signed)
+   *   transaction envelope.
+   * @param networkPassphrase - The Stellar network passphrase to sign for.
+   * @param accountToSign - Optional specific account to sign with; defaults to
+   *   the Freighter-connected account when omitted.
+   * @returns The base64-encoded signed transaction XDR.
    * @throws {WalletError} if the user rejects, Freighter is unavailable, or no
    *   signed XDR is returned.
    */

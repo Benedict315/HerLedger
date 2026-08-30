@@ -7,10 +7,11 @@ import { readLimiter } from "@/lib/api/rate-limit-config";
 import { typedJson } from "@/lib/api/route-handler";
 import { auth } from "@/lib/auth/server";
 import { getRecentActivity } from "@/lib/data/activity";
+import { withRateLimit } from "@/lib/rate-limit";
 
 import { RequestSchema, type ActivityRecentResponse } from "./schema";
 
-export async function GET(req: NextRequest) {
+export const GET = withRateLimit(async (req: NextRequest) => {
   const session = await auth.api.getSession({ headers: await headers() });
 
   const limited = readLimiter.check(rateLimitKey(req, session?.user?.id));
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest) {
 
   if (!session) {
     return typedJson<ActivityRecentResponse>(
-      { data: null, error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
+      { data: null, error: { code: "UNAUTHORIZED", message: "Not authenticated" }, meta: null },
       { status: 401 }
     );
   }
@@ -32,8 +33,8 @@ export async function GET(req: NextRequest) {
   });
   if (!parsed.success) {
     return typedJson<ActivityRecentResponse>(
-      { data: null, error: { code: "INVALID_PARAMS", message: "Invalid pagination params" } },
-      { status: 400 }
+      { data: null, error: { code: "INVALID_PARAMS", message: "Invalid pagination params" }, meta: null },
+      { status: 422 }
     );
   }
 
@@ -47,5 +48,5 @@ export async function GET(req: NextRequest) {
     ...(parsed.data.endDate ? { endDate: parsed.data.endDate } : {}),
   });
 
-  return typedJson<ActivityRecentResponse>({ data, error: null });
-}
+  return typedJson<ActivityRecentResponse>({ data, error: null, meta: null });
+});

@@ -25,6 +25,7 @@ const validBody = {
   description: "Independent notary",
   metadataHash: "a".repeat(64),
   txHash: "txhash123",
+  txHash: "tx_123",
 };
 
 function jsonRequest(body: unknown) {

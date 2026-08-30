@@ -63,7 +63,7 @@ async function pingIndexer(): Promise<{
   }
 }
 
-export async function GET(req?: NextRequest) {
+export async function GET(req?: NextRequest): Promise<Response> {
   if (req) {
     const limited = readLimiter.check(getClientIp(req));
     if (limited) return limited;

@@ -44,7 +44,13 @@ export function WalletConnect({ onConnected }: WalletConnectProps) {
     }
   }, [address]);
 
+  const isConnecting = loading;
+  const isConnected = Boolean(connectedAddress);
+  const disconnect = handleDisconnect;
+
   async function handleConnect() {
+    setLoading(true);
+    setError(null);
     try {
       await connect();
     } catch {

@@ -100,6 +100,17 @@ export {
   signTransactionWithFreighter,
 } from "./wallet/freighter.js";
 
+// Wallet ownership challenge (re-linking)
+export {
+  WALLET_LINK_CHALLENGE_TTL_MS,
+  generateWalletLinkNonce,
+  buildWalletLinkChallengeMessage,
+  isWalletLinkChallengeExpired,
+  signWalletLinkChallenge,
+  verifyWalletLinkChallengeSignature,
+} from "./wallet/challenge.js";
+export type { WalletLinkChallengeParams } from "./wallet/challenge.js";
+
 // Encoding
 export {
   encodeBytes32,
