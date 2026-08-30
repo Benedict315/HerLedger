@@ -1,6 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
-import type { StellarNetworkConfig, ContractConfig } from "@herledger/sdk/types";
-import { getAttestation } from "@herledger/sdk/contracts";
+import { getAttestation, type StellarNetworkConfig, type ContractConfig } from "@herledger/sdk";
 import { upsertAttestation } from "../db/schema/attestations.js";
 
 // ---------------------------------------------------------------------------

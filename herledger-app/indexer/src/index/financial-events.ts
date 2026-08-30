@@ -1,6 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
-import type { StellarNetworkConfig, ContractConfig } from "@herledger/sdk/types";
-import { isSupportedAsset } from "@herledger/sdk/contracts";
+import { isSupportedAsset, type StellarNetworkConfig, type ContractConfig } from "@herledger/sdk";
 import { upsertFinancialEvent } from "../db/schema/financial-events.js";
 import { upsertStellarTransaction } from "../db/schema/stellar-transactions.js";
 import { findBusinessByWallet } from "../db/schema/businesses.js";
