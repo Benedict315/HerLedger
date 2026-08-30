@@ -1,9 +1,4 @@
-import {
-  rpc as StellarRpc,
-  Transaction,
-  FeeBumpTransaction,
-  TransactionBuilder,
-} from "@stellar/stellar-sdk";
+import { rpc as StellarRpc, Transaction, TransactionBuilder } from "@stellar/stellar-sdk";
 import type { StellarNetworkConfig, TransactionResult } from "../types/index.js";
 import { RpcError, RpcErrorCode, ContractError, ContractErrorCode } from "../errors/index.js";
 import { getSorobanRpcServer } from "./client.js";
@@ -228,8 +223,6 @@ export async function submitAndWait(
 
   assertNotAborted(options.signal);
   const server = getSorobanRpcServer(config);
-  const maxWaitMs = options.maxWaitMs ?? DEFAULT_MAX_WAIT_MS;
-  const pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
 
   const txObj = TransactionBuilder.fromXDR(signedXdr, config.networkPassphrase);
   const deadline = Date.now() + maxWaitMs;
@@ -246,7 +239,10 @@ export async function submitAndWait(
     );
   }
 
-  return pollUntilResolved(server, sendResult.hash, deadline, pollIntervalMs, options);
+  const hash = sendResult.hash;
+  onSubmitted?.(hash);
+
+  return pollTransactionStatus(hash, config, options);
 }
 
 /**
@@ -255,13 +251,13 @@ export async function submitAndWait(
 export async function submitWithFeeBump(
   innerTx: Transaction,
   feeSource: string,
-  maxFee: string,
+  fee: string | number,
   config: StellarNetworkConfig,
-  options: SubmitAndWaitOptions = {}
+  options?: SubmitAndWaitOptions
 ): Promise<TransactionResult> {
   const feeBumpTx = TransactionBuilder.buildFeeBumpTransaction(
     feeSource,
-    maxFee,
+    String(fee),
     innerTx,
     config.networkPassphrase
   );

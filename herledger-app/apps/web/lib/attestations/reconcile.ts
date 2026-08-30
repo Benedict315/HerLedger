@@ -1,4 +1,4 @@
-import type { AttestationStatus } from "@herledger/sdk/types";
+import type { AttestationStatus } from "@herledger/sdk";
 
 /**
  * Compare a DB-indexed attestation status against the result of an

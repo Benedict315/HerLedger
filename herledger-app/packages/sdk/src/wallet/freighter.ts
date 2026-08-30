@@ -8,6 +8,8 @@ import {
 import { WalletError, WalletErrorCode } from "../errors/index.js";
 import type { WalletConnection, WalletProvider } from "./types.js";
 
+import type { WalletConnection, WalletProvider } from "./types.js";
+
 // ---------------------------------------------------------------------------
 // FreighterWalletProvider
 // Implements WalletProvider by delegating to the Freighter browser extension.
@@ -206,41 +208,14 @@ export async function connectWallet(): Promise<WalletConnection> {
 }
 
 /**
- * Get the currently connected public key without prompting for access.
- *
- * @returns The connected `G...` address, or `null` if no wallet is connected
- *   or Freighter is unavailable.
- *
- * @example
- * ```ts
- * const owner = await getConnectedAddress();
- * if (!owner) throw new Error("Connect a wallet first");
- * ```
+ * @deprecated Use `FreighterWalletProvider.getAddress()` or the `useWallet()` hook instead.
  */
 export async function getConnectedAddress(): Promise<string | null> {
   return freighterWalletProvider.getAddress();
 }
 
 /**
- * Sign a transaction XDR string using Freighter and return the signed XDR.
- *
- * @param transactionXdr - Base64-encoded unsigned (or partially signed)
- *   transaction envelope.
- * @param networkPassphrase - The Stellar network passphrase to sign for.
- * @param accountToSign - Optional specific account to sign with; defaults to
- *   the Freighter-connected account when omitted.
- * @returns The base64-encoded signed transaction XDR.
- * @throws {WalletError} if the user rejects, Freighter is unavailable, or no
- *   signed XDR is returned.
- *
- * @example
- * ```ts
- * const signed = await signTransactionWithFreighter(
- *   prepared.toXDR(),
- *   config.networkPassphrase,
- *   params.owner
- * );
- * ```
+ * @deprecated Use `FreighterWalletProvider.signTransaction()` instead.
  */
 export async function signTransactionWithFreighter(
   transactionXdr: string,
