@@ -91,6 +91,7 @@ production for real financial data without a professional security review.
 - **Edge Session Validation & DB Liveness Enforcement**: `apps/web/middleware.ts`
   protects `/dashboard/*` routes by calling `auth.api.getSession({ headers: request.headers })`
   on every request.
+
   - **Cryptographic HMAC & DB verification**: Forged session cookies, invalid tokens, and
     sessions revoked in the database are rejected with an explicit HTTP 302 redirect to `/auth/sign-in`.
   - **Edge-compatible session caching**: `apps/web/lib/auth/server.ts` configures
@@ -100,12 +101,12 @@ production for real financial data without a professional security review.
 
 - **Open-Redirect Defense**: The `callbackUrl` query parameter on `/auth/sign-in` is
   sanitized with `validateCallbackUrl` (`apps/web/lib/auth/callback-url.ts`).
+
   - **Allowlisting**: Only same-origin relative paths (e.g. `/dashboard`) or absolute URLs
     matching `APP_URL` are permitted.
   - **Payload dropping**: Protocol-relative URLs (`//evil.com`), external domains
     (`https://evil.com`), script URIs (`javascript:alert(1)`), URL-encoded variants,
     and backslash traversal tricks (`/\evil.com`) are dropped silently.
-
 
   - **Email provider**: [Resend](https://resend.com) (`apps/web/lib/email/`).
     A single `RESEND_API_KEY` env var is enough in development against
@@ -178,7 +179,7 @@ production for real financial data without a professional security review.
 
 `apps/web/middleware.ts` gates every `/dashboard/*` request and the
 `/auth/sign-in` / `/auth/sign-up` routes. It used to only check whether a
-`better-auth.session_token` cookie was *present* — it never verified the
+`better-auth.session_token` cookie was _present_ — it never verified the
 cookie cryptographically or checked whether the session it names still
 exists in the database, so a forged or DB-revoked cookie sailed through.
 
@@ -225,7 +226,7 @@ exists in the database, so a forged or DB-revoked cookie sailed through.
   token/id index, not a scan; (3) the cache TTL (30s) caps how often a
   given browser session pays the DB-lookup cost to at most once per 30
   seconds of active use, regardless of navigation frequency. These bound
-  the *added* latency structurally; they are not a substitute for measuring
+  the _added_ latency structurally; they are not a substitute for measuring
   it against a real Postgres instance under load.
 - **Open redirect on `callbackUrl`**: `apps/web/lib/auth/validate-callback-url.ts`
   exports `validateCallbackUrl(url, allowedOrigins)`, used by the
@@ -307,12 +308,14 @@ The Fastify indexer API (`indexer/src/api/`) is protected by shared-secret authe
 ### Authentication Model
 
 **Shared-Secret Authentication:**
+
 - All protected routes require an `X-Indexer-Secret` header matching the `INDEXER_API_SECRET` environment variable
 - The secret must be at least 32 characters (enforced by `packages/config/src/schema.ts`)
 - Missing or invalid secrets return HTTP 401 with structured error responses
 - Public routes (health checks, metrics, OpenAPI spec) are exempt from authentication
 
 **Trade-off: Shared-Secret vs mTLS:**
+
 - Shared-secret was chosen over mTLS for operational simplicity
 - Suitable for internal service-to-service communication in trusted networks
 - mTLS would provide stronger security for untrusted networks but requires certificate management infrastructure
@@ -328,6 +331,7 @@ The Fastify indexer API (`indexer/src/api/`) is protected by shared-secret authe
 ### Input Validation
 
 All path and query parameters are validated with Zod schemas before processing:
+
 - `businessId`: Must be a 64-character hexadecimal string
 - `hash`: Must be exactly 64 characters (transaction hash)
 - `errorId`: Alphanumeric with underscores and hyphens, max 100 characters
@@ -337,6 +341,7 @@ All path and query parameters are validated with Zod schemas before processing:
 ### Secret Rotation
 
 A rotation script is provided at `scripts/rotate-indexer-secret.ts`:
+
 - Generates a new 32-byte cryptographically secure random secret
 - Updates both root `.env` and `indexer/.env` files atomically
 - Creates backup files with `.backup` extension
@@ -346,17 +351,20 @@ A rotation script is provided at `scripts/rotate-indexer-secret.ts`:
 ### Implementation Details
 
 **Authentication Middleware** (`indexer/src/api/auth.ts`):
+
 - `createAuthMiddleware(secret)` returns a Fastify onRequest hook
 - Validates the `X-Indexer-Secret` header on every request
 - Handles both string and array header values defensively
 - Returns 401 with clear error codes (`UNAUTHORIZED`)
 
 **Public Route Detection**:
+
 - `isPublicRoute(url)` identifies endpoints that don't require authentication
 - Includes `/health`, `/v1/health`, `/metrics`, `/openapi.json`, `/v1/openapi.json`
 - Applied in `indexer/src/api/server.ts` before the auth middleware
 
 **Server Setup** (`indexer/src/api/server.ts`):
+
 - Registers CORS plugin with origin restriction
 - Applies auth middleware globally with public route exemption
 - Fails fast if `INDEXER_API_SECRET` is not configured

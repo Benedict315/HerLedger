@@ -26,7 +26,11 @@ import { registerCurrentNetworkAddresses, buildContractConfig } from "@herledger
 const MAX_RETRIES = 5;
 
 const errorIdSchema = z.object({
-  errorId: z.string().min(1).max(100).regex(/^[a-zA-Z0-9_-]+$/, "Invalid error ID format"),
+  errorId: z
+    .string()
+    .min(1)
+    .max(100)
+    .regex(/^[a-zA-Z0-9_-]+$/, "Invalid error ID format"),
 });
 
 function isAuthorized(req: { headers: Record<string, unknown> }): boolean {

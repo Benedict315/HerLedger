@@ -20,7 +20,10 @@ import type { FastifyRequest, FastifyReply } from "fastify";
 const AUTH_HEADER = "x-indexer-secret";
 
 export function createAuthMiddleware(secret: string) {
-  return async function authMiddleware(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  return async function authMiddleware(
+    request: FastifyRequest,
+    reply: FastifyReply
+  ): Promise<void> {
     const providedSecret = request.headers[AUTH_HEADER];
 
     if (!providedSecret) {
