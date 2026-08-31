@@ -6,7 +6,7 @@
     "dev": "pnpm --filter web dev",
     "build": "pnpm --filter web build",
     "lint": "pnpm -r lint",
-    "typecheck": "pnpm -r typecheck",
+    "typecheck": "pnpm db:generate && pnpm -r typecheck",
     "format": "prettier --check \"**/*.{ts,tsx,js,json,md}\"",
     "format:write": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
     "test": "pnpm -r test",
