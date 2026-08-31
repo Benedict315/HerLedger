@@ -41,7 +41,7 @@ const commaSeparatedUrls = z
  * alone (the previous `.min(32)`) wasn't enough to keep a weak value like
  * `"secret"` padded out to 32 chars from passing.
  */
-const authSecretEntropy = z.string().refine((val) => /^[0-9a-fA-F]{64,}$/.test(val), {
+const _authSecretEntropy = z.string().refine((val) => /^[0-9a-fA-F]{64,}$/.test(val), {
   message:
     "Must be at least 64 hexadecimal characters (32 bytes) of entropy. Generate one with: openssl rand -hex 32",
 });
