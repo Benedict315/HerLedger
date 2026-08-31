@@ -1,5 +1,5 @@
 import { Contract, TransactionBuilder, Account, rpc as StellarRpc } from "@stellar/stellar-sdk";
-import { getSorobanRpcServer, encodeAddress } from "@herledger/sdk";
+import { getSorobanRpcServer } from "@herledger/sdk";
 import type { StellarNetworkConfig, ContractConfig } from "@herledger/sdk";
 import { logger } from "../observability/index.js";
 import { retryWithBackoff } from "./retry.js";

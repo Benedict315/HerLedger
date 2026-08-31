@@ -23,12 +23,17 @@ vi.mock("../retry.js", () => ({
 }));
 
 describe("AssetCache", () => {
-  const mockConfig = {
+  const mockConfig: StellarNetworkConfig = {
     networkPassphrase: "Test SDF Network ; September 2015",
-  } as any;
-  const mockContracts = {
+    stellarRpcUrls: ["http://localhost:8000"],
+    stellarHorizonUrl: "http://localhost:8001",
+    stellarNetwork: "testnet",
+  };
+  const mockContracts: ContractConfig = {
     financialLedgerId: "CLEDGER",
-  } as any;
+    businessRegistryId: "CBUSINESS",
+    attestationRegistryId: "CATT",
+  };
 
   beforeEach(() => {
     resetAssetCache();
@@ -62,7 +67,7 @@ describe("AssetCache", () => {
     const { getSorobanRpcServer } = await import("@herledger/sdk");
     vi.mocked(getSorobanRpcServer).mockReturnValueOnce({
       simulateTransaction: vi.fn().mockRejectedValue(new Error("RPC down")),
-    } as any);
+    } as unknown as ReturnType<typeof getSorobanRpcServer>);
 
     const assets = await getSupportedAssets(mockConfig, mockContracts, 100);
     expect(assets.size).toBe(0);
