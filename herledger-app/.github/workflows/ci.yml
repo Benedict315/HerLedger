@@ -53,6 +53,11 @@ jobs:
     timeout-minutes: 10
     needs: setup
 
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://herledger:herledger@localhost:5432/herledger_test
+      SHADOW_DATABASE_URL: postgresql://herledger:herledger@localhost:5432/herledger_shadow
+
     steps:
       - uses: actions/checkout@v4
 
@@ -79,6 +84,12 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+        working-directory: herledger-app
+
+      - name: Create .env.local for Prisma
+        run: |
+          echo "DATABASE_URL=$DATABASE_URL" > .env.local
+          echo "SHADOW_DATABASE_URL=$SHADOW_DATABASE_URL" >> .env.local
         working-directory: herledger-app
 
       - name: Prisma generate
@@ -211,6 +222,11 @@ jobs:
     timeout-minutes: 15
     needs: [setup, unit-tests]
 
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://herledger:herledger@localhost:5432/herledger_test
+      SHADOW_DATABASE_URL: postgresql://herledger:herledger@localhost:5432/herledger_shadow
+
     steps:
       - uses: actions/checkout@v4
 
@@ -237,6 +253,12 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+        working-directory: herledger-app
+
+      - name: Create .env.local for Prisma
+        run: |
+          echo "DATABASE_URL=$DATABASE_URL" > .env.local
+          echo "SHADOW_DATABASE_URL=$SHADOW_DATABASE_URL" >> .env.local
         working-directory: herledger-app
 
       - name: Prisma generate
