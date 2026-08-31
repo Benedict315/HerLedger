@@ -2,6 +2,7 @@ import { getDbClient } from "@herledger/db";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 
+import { auth } from "@/lib/auth";
 import { getClientIp } from "@/lib/api/rate-limit";
 import { authLimiter } from "@/lib/api/rate-limit-config";
 import { typedJson } from "@/lib/api/route-handler";
