@@ -74,7 +74,7 @@ async function fetchSupportedAssetsFromContract(
 
     return vec.map((val) => {
       const addr = val.address();
-      return addr ?? "";
+      return addr?.toString() ?? "";
     });
   }, "fetchSupportedAssetsFromContract");
 }
