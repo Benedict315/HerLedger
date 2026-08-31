@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { getSupportedAssets, resetAssetCache } from "../asset-cache.js";
+import type { StellarNetworkConfig, ContractConfig } from "@herledger/sdk";
 
 // Mock the RPC and SDK modules
 vi.mock("@herledger/sdk", () => ({
