@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { getSupportedAssets, resetAssetCache } from "../asset-cache.js";
-import type { StellarNetworkConfig, ContractConfig } from "@herledger/sdk";
+import type { StellarNetworkConfig, ContractConfig, ContractAddress } from "@herledger/sdk";
 
 // Mock the RPC and SDK modules
 vi.mock("@herledger/sdk", () => ({
@@ -26,14 +26,14 @@ vi.mock("../retry.js", () => ({
 describe("AssetCache", () => {
   const mockConfig: StellarNetworkConfig = {
     networkPassphrase: "Test SDF Network ; September 2015",
-    stellarRpcUrls: ["http://localhost:8000"],
-    stellarHorizonUrl: "http://localhost:8001",
-    stellarNetwork: "testnet",
+    network: "testnet",
+    rpcUrl: "http://localhost:8000",
+    horizonUrl: "http://localhost:8001",
   };
   const mockContracts: ContractConfig = {
-    financialLedgerId: "CLEDGER",
-    businessRegistryId: "CBUSINESS",
-    attestationRegistryId: "CATT",
+    financialLedgerId: "CLEDGER" as ContractAddress,
+    businessRegistryId: "CBUSINESS" as ContractAddress,
+    attestationRegistryId: "CATT" as ContractAddress,
   };
 
   beforeEach(() => {
