@@ -17,6 +17,16 @@ production for real financial data without a professional security review.
 - **Server-side secrets**: `DATABASE_URL` and `BETTER_AUTH_SECRET` are
   never exposed to browser code. Only `NEXT_PUBLIC_*` values are client-accessible.
 
+- **`BETTER_AUTH_SECRET` entropy validation**: `packages/config/src/schema.ts`
+  requires the value to match `/^[0-9a-fA-F]{64,}$/` (>= 64 hex characters,
+  i.e. >= 32 bytes of entropy) via a Zod `.refine()`, not just a minimum
+  length. A human-typed passphrase padded out to some minimum length (the
+  previous rule was `.min(32)`) carries far less real entropy per character
+  than random hex does, so length alone let a weak value slip through as
+  long as it was long enough. `getServerEnv()` still calls `process.exit(1)`
+  with a descriptive table on any failure, so the app refuses to start with
+  a weak secret. Generate a compliant value with `openssl rand -hex 32`.
+
 - **Input validation**: All API inputs are validated with Zod. No user-provided
   data bypasses validation.
 

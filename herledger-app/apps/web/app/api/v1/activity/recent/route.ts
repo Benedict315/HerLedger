@@ -1,63 +1,52 @@
+import { getDbClient } from "@herledger/db";
 import { headers } from "next/headers";
 import { NextRequest } from "next/server";
 
+import { rateLimitKey } from "@/lib/api/rate-limit";
+import { readLimiter } from "@/lib/api/rate-limit-config";
 import { typedJson } from "@/lib/api/route-handler";
 import { auth } from "@/lib/auth/server";
-import { getPrismaClient } from "@/lib/db/client";
+import { getRecentActivity } from "@/lib/data/activity";
+import { withRateLimit } from "@/lib/rate-limit";
 
 import { RequestSchema, type ActivityRecentResponse } from "./schema";
 
-const prisma = getPrismaClient();
-
-export async function GET(req: NextRequest) {
+export const GET = withRateLimit(async (req: NextRequest) => {
   const session = await auth.api.getSession({ headers: await headers() });
+
+  const limited = readLimiter.check(rateLimitKey(req, session?.user?.id));
+  if (limited) return limited;
+
   if (!session) {
     return typedJson<ActivityRecentResponse>(
-      { data: null, error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
+      { data: null, error: { code: "UNAUTHORIZED", message: "Not authenticated" }, meta: null },
       { status: 401 }
     );
   }
 
   const { searchParams } = new URL(req.url);
   const parsed = RequestSchema.safeParse({
-    offset: searchParams.get("offset"),
-    limit: searchParams.get("limit"),
+    offset: searchParams.get("offset") ?? undefined,
+    limit: searchParams.get("limit") ?? undefined,
+    startDate: searchParams.get("startDate") ?? undefined,
+    endDate: searchParams.get("endDate") ?? undefined,
   });
   if (!parsed.success) {
     return typedJson<ActivityRecentResponse>(
-      { data: null, error: { code: "INVALID_PARAMS", message: "Invalid pagination params" } },
-      { status: 400 }
+      { data: null, error: { code: "INVALID_PARAMS", message: "Invalid pagination params" }, meta: null },
+      { status: 422 }
     );
   }
 
-  const profile = await prisma.businessProfile.findFirst({
-    where: { userId: session.user.id },
-    select: { businessId: true },
+  const db = getDbClient();
+  const profile = await db.businesses.findByUserId(session.user.id);
+
+  const data = await getRecentActivity(profile?.businessId ?? null, {
+    offset: parsed.data.offset,
+    limit: parsed.data.limit,
+    ...(parsed.data.startDate ? { startDate: parsed.data.startDate } : {}),
+    ...(parsed.data.endDate ? { endDate: parsed.data.endDate } : {}),
   });
 
-  if (!profile) {
-    return typedJson<ActivityRecentResponse>({
-      data: { events: [], pagination: { offset: 0, limit: parsed.data.limit, count: 0 } },
-      error: null,
-    });
-  }
-
-  const events = await prisma.financialEvent.findMany({
-    where: { businessId: profile.businessId },
-    orderBy: { ledgerSequence: "desc" },
-    skip: parsed.data.offset,
-    take: parsed.data.limit,
-  });
-
-  return typedJson<ActivityRecentResponse>({
-    data: {
-      events,
-      pagination: {
-        offset: parsed.data.offset,
-        limit: parsed.data.limit,
-        count: events.length,
-      },
-    },
-    error: null,
-  });
-}
+  return typedJson<ActivityRecentResponse>({ data, error: null, meta: null });
+});

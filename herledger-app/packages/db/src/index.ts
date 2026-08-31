@@ -71,17 +71,19 @@ export {
   createStellarTransactionsRepository,
 } from "./repositories/stellar-transactions.js";
 
-export {
-  findUserById,
-  deleteUserAccount,
-  createUsersRepository,
-} from "./repositories/users.js";
+export { findUserById, deleteUserAccount, createUsersRepository } from "./repositories/users.js";
 
 export {
   findDisputeByEventId,
   createDispute,
   createDisputesRepository,
 } from "./repositories/disputes.js";
+
+export {
+  createAuditLog,
+  findAuditLogsByEntity,
+  type CreateAuditLogInput,
+} from "./repositories/audit-log.js";
 
 // Pagination and filtering utilities
 export {
@@ -109,6 +111,8 @@ export type {
   UpsertStellarTransactionInput,
   CreateDisputeInput,
   PaginationOptions,
+  ActivityQueryOptions,
+  FinancialEventsSummary,
   PaginatedResult,
   BusinessesRepository,
   FinancialEventsRepository,
